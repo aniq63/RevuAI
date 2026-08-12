@@ -1,0 +1,8 @@
+data:
+  path: "datasource/raw/app_reviews_labeled.csv"
+
+data_transformation:
+  batch_size : 400
+
+data_evaluation:
+  test_data_size : 0.2

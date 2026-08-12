@@ -1,0 +1,14 @@
+tqdm
+transformers
+pandas
+numpy
+scikit-learn
+xgboost
+nltk
+sqlalchemy
+asyncpg
+pydantic-settings
+pydantic
+python-dotenv
+pyyaml
+ipython
