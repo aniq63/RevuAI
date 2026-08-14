@@ -6,3 +6,21 @@ data_transformation:
 
 data_evaluation:
   test_data_size : 0.2
+
+
+# Obtained via Optuna hyperparameter optimization (50 trials)
+# Evaluated using 5-fold cross-validation (cv=5)
+model_params:
+  c: 1.1709879033298216
+  tol: 0.000008137560594377145
+  loss: hinge
+  fit_intercept: true
+  class_weight: balanced
+  max_iter: 4324
+
+
+mlflow:
+  registered_model_name: "linear_svc_model"
+  artifact_path: "linear_svc_model"
+  metric_name: "test_f1"
+  higher_is_better: true

@@ -220,6 +220,7 @@ __marimo__/
 
 # Files
 demo.py
-
+mlflow.db
 # Folders
 logs
+mlruns

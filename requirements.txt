@@ -12,3 +12,5 @@ pydantic
 python-dotenv
 pyyaml
 ipython
+mlflow
+dagshub

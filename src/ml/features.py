@@ -33,17 +33,15 @@ class FeatureTransformation:
             X_test_tfidf = self.tfidf_vectorizer.transform(X_test)
             
             logging.info("TF-IDF Transformation completed successfully")
-            return X_train_tfidf, X_test_tfidf
+            return (
+                X_train_tfidf,
+                X_test_tfidf,
+                self.tfidf_vectorizer
+            )
             
         except Exception as e:
             logging.error("Exception occurred during TF-IDF transformation")
             raise MyException(e, sys)
-
-    def save_vectorizer(self, file_path: str):
-        """
-        Saves the fitted vectorizer artifact for production inference.
-        """
-        pass
 
 
 # ==============================================
@@ -68,7 +66,7 @@ if __name__ == "__main__":
         
         # 2. Initialize and run transformation
         transform_obj = FeatureTransformation()
-        X_train_vec, X_test_vec = transform_obj.apply_tf_idf(train_data, test_data)
+        X_train_vec, X_test_vec, vectorizer = transform_obj.apply_tf_idf(train_data, test_data)
         
         print(f"Train matrix shape: {X_train_vec.shape}")
         print(f"Test matrix shape: {X_test_vec.shape}")
