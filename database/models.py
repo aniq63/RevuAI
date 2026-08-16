@@ -54,7 +54,7 @@ class ReviewRecord(Base):
     content = Column(Text, nullable=False)
     score = Column(Integer, nullable=True)
     thumbs_up_count = Column(Integer, nullable=True)
-    label = Column(String(32), nullable=True)
+    label = Column(Integer, nullable=True)
 
     # Dedup key so re-running ingestion on overlapping data doesn't
     # duplicate rows, while still keeping the table strictly append-only

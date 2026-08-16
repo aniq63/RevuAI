@@ -48,7 +48,7 @@ class MLPipeline:
             # Data Splitting
             # ======================
             logging.info("Splitting the data...")
-            splitter = DataSplit()
+            splitter = DataSplit(label_column="label")
             X_train, X_test, y_train, y_test = splitter.data_split(df=df)
             logging.info("Data Splitting Completed")
 

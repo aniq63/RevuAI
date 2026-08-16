@@ -22,7 +22,7 @@ from utils.config_loader import settings
 class DataSplit:
     """Splits a DataFrame into stratified train/test sets."""
 
-    def __init__(self, target_column: str = "content", label_column: str = "score"):
+    def __init__(self, target_column: str = "content", label_column: str = "label"):
         self.target_column = target_column
         self.label_column = label_column
         try:

@@ -68,6 +68,17 @@ class TransformData:
         stemmed_text = self._apply_stemming(cleaned_content)
         return stemmed_text
 
+    @staticmethod
+    def _sentiment_to_number(sentiment: str) -> int:
+        """Convert the sentiment label into a numeric value."""
+        if sentiment == "negative":
+            return 0
+        elif sentiment == "neutral":
+            return 1
+        elif sentiment == "positive":
+            return 2
+        return sentiment
+
     def data_transformation(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Accepts a pandas DataFrame, drops missing target texts, executes 
@@ -116,7 +127,11 @@ class TransformData:
             # 5. Concatenate all transformed chunks back into the target column
             if transformed_series_list:
                 df[self.target_column] = pd.concat(transformed_series_list, ignore_index=True)
-            
+
+            # 6. Convert the sentiment label into numeric values
+            if "label" in df.columns:
+                df["label"] = df["label"].apply(self._sentiment_to_number)
+
             logging.info("Batch data transformation completed successfully.")
             logging.info(f"Final shape configuration of data matrix output: {df.shape}")
             
