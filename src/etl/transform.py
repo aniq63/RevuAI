@@ -1,15 +1,11 @@
 """
-Transform the Extracted Data using NLTK Text Preprocessing Steps with Batch Processing
+Transform the Extracted Data using Text Preprocessing Steps with Batch Processing
 """
 
 import sys
 from pathlib import Path
 import re
-import unicodedata
 import pandas as pd
-import nltk
-from nltk.tokenize import word_tokenize
-from nltk.stem import PorterStemmer
 
 # Ensure system path mapping works if executed directly
 PROJECT_ROOT = str(Path(__file__).resolve().parent.parent.parent)
@@ -20,16 +16,57 @@ from utils.logger import logging
 from utils.exception import MyException
 from utils.config_loader import settings
 
-# Download required NLTK resources safely once during module startup
-try:
-    nltk.download('punkt_tab', quiet=True)
-except Exception as e:
-    logging.warning(f"Failed to download NLTK assets automatically: {str(e)}")
+
+def clean_text(text):
+    """
+    Clean Play Store review text.
+
+    Removes:
+    - HTML tags
+    - URLs
+    - Emojis
+    - Extra whitespace
+    """
+
+    text = str(text)
+
+    # Remove HTML tags
+    text = re.sub(r"<.*?>", " ", text)
+
+    # Remove URLs
+    text = re.sub(r"http\S+|www\S+", " ", text)
+
+    # Remove emojis and other Unicode symbols
+    emoji_pattern = re.compile(
+        "["
+        "\U0001F300-\U0001F5FF"  # Miscellaneous Symbols and Pictographs
+        "\U0001F600-\U0001F64F"  # Emoticons
+        "\U0001F680-\U0001F6FF"  # Transport & Map Symbols
+        "\U0001F700-\U0001F77F"  # Alchemical Symbols
+        "\U0001F780-\U0001F7FF"  # Geometric Shapes Extended
+        "\U0001F800-\U0001F8FF"  # Supplemental Arrows-C
+        "\U0001F900-\U0001F9FF"  # Supplemental Symbols and Pictographs
+        "\U0001FA00-\U0001FA6F"  # Chess Symbols
+        "\U0001FA70-\U0001FAFF"  # Symbols and Pictographs Extended-A
+        "\U00002702-\U000027B0"  # Dingbats
+        "\U000024C2-\U0001F251"
+        "]+",
+        flags=re.UNICODE,
+    )
+
+    text = emoji_pattern.sub(" ", text)
+
+    # Remove extra whitespace
+    text = re.sub(r"\s+", " ", text)
+
+    # Remove leading/trailing whitespace
+    text = text.strip()
+
+    return text
 
 
 class TransformData:
     def __init__(self):
-        self.stemmer = PorterStemmer()
         
         # 1. Fetch configurable values from configurations safely
         try:
@@ -43,18 +80,6 @@ class TransformData:
         """Converts text strings to standard lowercase form."""
         return text.lower()
 
-    def _clean_text(self, text: str) -> str:
-        """Removes HTML elements, target URLs, structural Emojis, and extra structural whitespace."""
-        text = str(text)
-        text = re.sub(r"<.*?>", "", text)
-        text = re.sub(r"http\S+|www\S+", "", text)
-        text = "".join(
-            char for char in text 
-            if not unicodedata.category(char).startswith("So")
-        )
-        text = re.sub(r"\s+", " ", text)
-        return text.strip()
-
     def _apply_stemming(self, text: str) -> str:
         """Splits sentences using NLTK and normalizes words via Porter Stemming."""
         words = word_tokenize(text)
@@ -64,9 +89,8 @@ class TransformData:
     def _text_preprocessing(self, text: str) -> str:
         """Single pipeline transaction containing sequential string processing logic."""
         text_lower = self._lower_text(text)
-        cleaned_content = self._clean_text(text_lower)
-        stemmed_text = self._apply_stemming(cleaned_content)
-        return stemmed_text
+        cleaned_content = clean_text(text_lower)
+        return cleaned_content
 
     @staticmethod
     def _sentiment_to_number(sentiment: str) -> int:
@@ -128,6 +152,14 @@ class TransformData:
             if transformed_series_list:
                 df[self.target_column] = pd.concat(transformed_series_list, ignore_index=True)
 
+            # 5.5 Replace rows whose text became empty after cleaning (e.g. emoji-only) with NaN, then drop them
+            df[self.target_column] = df[self.target_column].replace(r"^\s*$", pd.NA, regex=True)
+            dropped_cleaned = df[self.target_column].isna().sum()
+            if dropped_cleaned > 0:
+                logging.info(f"Dropped {dropped_cleaned} rows that became empty after text cleaning.")
+            df = df.dropna(subset=[self.target_column])
+            df = df.reset_index(drop=True)
+
             # 6. Convert the sentiment label into numeric values
             if "label" in df.columns:
                 df["label"] = df["label"].apply(self._sentiment_to_number)
@@ -153,7 +185,9 @@ if __name__ == "__main__":
         test_data = pd.DataFrame({
             "content": [
                 "Beautiful app! 😍 visit https://google.com <b>Love it!</b>", 
+                "😃🎉🚀", 
                 "Running and walked swiftly.",
+                "",
                 "Another evaluation statement text record.",
                 "Testing final edge configurations here!"
             ]
@@ -166,6 +200,7 @@ if __name__ == "__main__":
         transformed_df = transformer.data_transformation(test_data)
         print("\n=== Transformed Target Output Sample ===")
         print(transformed_df["content"])
+        print(f"\nFinal row count (emoji-only and empty rows should be dropped): {transformed_df.shape[0]}")
         
     except MyException as e:
         print(f"Transformation transaction layer failed: {e}")
