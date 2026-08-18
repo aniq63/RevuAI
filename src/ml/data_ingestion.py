@@ -27,7 +27,7 @@ from database.models import ReviewRecord
 class DataIngestion:
     """Fetches the latest rows from the datalake into a pandas DataFrame."""
 
-    def __init__(self, sample_size: int = 25000):
+    def __init__(self, sample_size: int = 35000):
         self.sample_size = sample_size
 
     @staticmethod

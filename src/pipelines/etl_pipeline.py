@@ -1,12 +1,12 @@
 """
 End-to-end ETL orchestration for RevuAI.
 
-Flow:
+    Flow:
     1. EXTRACT -> ExtractData.data_extraction()  reads the full source
                                                    CSV into a DataFrame.
     2. TRANSFORM -> TransformData.data_transformation()
-                                                    cleans + stems review
-                                                    text.
+                                                    cleans + normalizes
+                                                    review text.
     3. LOAD    -> LoadData.load_data_async()      appends the batch into
                                                    the Supabase
                                                    `reviews_datalake`

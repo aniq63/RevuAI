@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from typing import Optional
 
 import mlflow
 from mlflow import MlflowClient
@@ -14,7 +15,8 @@ from utils.exception import MyException
 
 class ModelRegistry:
     """
-    Registers a model only if it outperforms the current Champion model.
+    Registers a model only if it outperforms the current Champion model
+    and passes the configured minimum quality gate.
     """
 
     def __init__(
@@ -24,6 +26,8 @@ class ModelRegistry:
         model_name: str = "linear_svc_classifier",
         artifact_path: str = "linear_svc_model",
         champion_alias: str = "Champion",
+        always_promote: bool = False,
+        min_test_f1: Optional[float] = None,
     ):
 
         self.client = MlflowClient()
@@ -34,6 +38,12 @@ class ModelRegistry:
         self.model_name = model_name
         self.artifact_path = artifact_path
         self.champion_alias = champion_alias
+        self.always_promote = always_promote
+
+        # Minimum test F1 a model must reach to be registered/promoted.
+        # When set, a model below this gate is never registered and the
+        # current Champion (if any) is kept.
+        self.min_test_f1 = min_test_f1
 
     # -------------------------------------------------------
     # Helpers
@@ -103,6 +113,21 @@ class ModelRegistry:
         try:
 
             # ---------------------------------------------
+            # Minimum quality gate
+            # ---------------------------------------------
+
+            below_gate = (
+                self.min_test_f1 is not None
+                and self.test_f1 < self.min_test_f1
+            )
+
+            if below_gate:
+                logging.warning(
+                    f"New model test F1 ({self.test_f1:.4f}) is below the "
+                    f"minimum quality threshold ({self.min_test_f1:.4f})."
+                )
+
+            # ---------------------------------------------
             # First model ever
             # ---------------------------------------------
             if not self._registered_model_exists():
@@ -110,6 +135,17 @@ class ModelRegistry:
                 logging.info(
                     "No registered model found."
                 )
+
+                if below_gate:
+                    logging.error(
+                        "Cannot register a model below the quality gate "
+                        "when no Champion exists yet."
+                    )
+                    raise MyException(
+                        "New model test F1 is below the minimum quality "
+                        "threshold and no Champion exists.",
+                        sys,
+                    )
 
                 self._create_registered_model()
 
@@ -139,11 +175,22 @@ class ModelRegistry:
                 f"Current Test F1 : {self.test_f1:.5f}"
             )
 
+            # Never replace the Champion with a below-threshold model,
+            # even when always_promote is enabled.
+            if below_gate:
+
+                logging.warning(
+                    "Keeping the current Champion (model is below the "
+                    "quality threshold)."
+                )
+
+                return champion
+
             # ---------------------------------------------
             # Compare
             # ---------------------------------------------
 
-            if self.test_f1 > champion_f1:
+            if self.always_promote or self.test_f1 > champion_f1:
 
                 logging.info(
                     "New model is better."

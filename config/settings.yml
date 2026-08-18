@@ -24,3 +24,9 @@ mlflow:
   artifact_path: "linear_svc_model"
   metric_name: "test_f1"
   higher_is_better: true
+  # Promote the new model to Champion ONLY when its test F1 beats the
+  # current Champion's test F1. Otherwise the previous model stays Champion.
+  always_promote: false
+  # Optional quality floor (test F1). Models below this are never promoted,
+  # even if they beat the Champion. Set to null to disable.
+  min_test_f1: null

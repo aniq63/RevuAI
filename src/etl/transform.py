@@ -80,12 +80,6 @@ class TransformData:
         """Converts text strings to standard lowercase form."""
         return text.lower()
 
-    def _apply_stemming(self, text: str) -> str:
-        """Splits sentences using NLTK and normalizes words via Porter Stemming."""
-        words = word_tokenize(text)
-        stemmed_words = [self.stemmer.stem(word) for word in words]
-        return " ".join(stemmed_words)
-
     def _text_preprocessing(self, text: str) -> str:
         """Single pipeline transaction containing sequential string processing logic."""
         text_lower = self._lower_text(text)

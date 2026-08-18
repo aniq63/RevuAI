@@ -21,6 +21,7 @@ from src.ml.registry import ModelRegistry
 
 from utils.logger import logging
 from utils.exception import MyException
+from utils.config_loader import settings
 
 
 class MLPipeline:
@@ -82,9 +83,22 @@ class MLPipeline:
             # Model Registry
             # ======================
             logging.info("Model Registry for Production Pipeline start ...")
+            try:
+                always_promote = bool(
+                    settings.get("mlflow", {}).get("always_promote", False)
+                )
+            except Exception:
+                always_promote = False
+            try:
+                raw_min_f1 = settings.get("mlflow", {}).get("min_test_f1")
+                min_test_f1 = float(raw_min_f1) if raw_min_f1 is not None else None
+            except Exception:
+                min_test_f1 = None
             registry = ModelRegistry(
                 run_id=run_id,
                 test_f1=test_f1,
+                always_promote=always_promote,
+                min_test_f1=min_test_f1,
             )
             version = registry.register()
             logging.info(

@@ -148,21 +148,31 @@ class ModelTraining:
         mlflow.log_artifact(report_path)
 
 
-        #============================
-        # Log Fitted TFIDF_Vectorize
-        #============================
-        mlflow.sklearn.log_model(
-           sk_model=self.tfidf_vectorize,
-           name="tfidf_vectorizer"
-        )
-
         # =========================
-        # Log Model
+        # Log LinearSVC Logged Model
         # =========================
-        mlflow.sklearn.log_model(
+        model_info = mlflow.sklearn.log_model(
             sk_model=model,
             name="linear_svc_model",
         )
+
+        #============================
+        # Log Fitted TFIDF_Vectorize
+        #============================
+        vectorizer_info = mlflow.sklearn.log_model(
+            sk_model=self.tfidf_vectorize,
+            name="tfidf_vectorizer",
+        )
+
+        # =========================
+        # Store Logged Model IDs as run tags so the Champion run can later
+        # be resolved to its exact model + vectorizer via `models:/<id>`.
+        # =========================
+        mlflow.set_tag("model_id", model_info.model_id)
+        mlflow.set_tag("vectorizer_model_id", vectorizer_info.model_id)
+
+        self.model_id = model_info.model_id
+        self.vectorizer_model_id = vectorizer_info.model_id
 
         logging.info("Model logged successfully to MLflow.")
 
@@ -227,7 +237,7 @@ if __name__ == "__main__":
                     "language processing helps great apps",
                     "data science is a great field",
                 ],
-                "score": [5, 1, 4, 2, 5, 1, 4, 2, 5, 1, 4, 2, 5, 1, 4, 2],
+                "label": [5, 1, 4, 2, 5, 1, 4, 2, 5, 1, 4, 2, 5, 1, 4, 2],
             }
         )
 
