@@ -15,3 +15,7 @@ ipython
 mlflow
 dagshub
 google-play-scraper
+sentence-transformers
+umap-learn
+hdbscan
+keybert
