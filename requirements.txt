@@ -19,3 +19,5 @@ sentence-transformers
 umap-learn
 hdbscan
 keybert
+langchain
+langchain-groq
