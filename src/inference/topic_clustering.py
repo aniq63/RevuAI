@@ -15,7 +15,7 @@ import json
 import sys
 import warnings
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import hdbscan
 import numpy as np
@@ -49,19 +49,25 @@ class SentimentTopicClusterer:
         embedding_model_name: str = "all-MiniLM-L6-v2",
         top_n_keywords: int = 3,
         min_reviews_to_cluster: int = 30,
-        top_topics_to_show: int = 5,          # for user-facing summary
+        top_topics_to_show: int = 3,      # for user-facing summary
+        max_clusters: int = 3,            # cap the number of clusters kept per sentiment
         enable_embedding_cache: bool = True,  # in-memory cache
+        embedder: Optional[SentenceTransformer] = None,
     ):
         self.top_n_keywords = top_n_keywords
         self.min_reviews_to_cluster = min_reviews_to_cluster
         self.top_topics_to_show = top_topics_to_show
+        self.max_clusters = max_clusters
         self.enable_embedding_cache = enable_embedding_cache
 
         logging.info("Loading embedding + keyword models...")
         with warnings.catch_warnings():
             # SentenceTransformer/UMAP emit deprecation warnings at load time.
             warnings.simplefilter("ignore")
-            self.embedder = SentenceTransformer(embedding_model_name)
+            self.embedder = (
+                embedder if embedder is not None
+                else SentenceTransformer(embedding_model_name)
+            )
         self.kw_model = KeyBERT(self.embedder)
 
         # In-memory embedding cache: key = hash of texts -> embeddings
@@ -197,6 +203,23 @@ class SentimentTopicClusterer:
         )
         cluster_labels = clusterer.fit_predict(reduced)
 
+        # Keep only the largest clusters (by review count) to bound the
+        # number of KeyBERT extractions and overall runtime. The removed
+        # clusters are treated as noise (-1).
+        if self.max_clusters is not None and self.max_clusters > 0:
+            cluster_series = pd.Series(cluster_labels)
+            cluster_counts = cluster_series.value_counts()
+            cluster_counts = cluster_counts[cluster_counts.index != -1]
+            biggest_clusters = set(
+                cluster_counts.index[: self.max_clusters]
+            )
+            cluster_labels = np.array(
+                [
+                    lab if lab in biggest_clusters else -1
+                    for lab in cluster_labels
+                ]
+            )
+
         subset = subset.copy()
         subset["cluster"] = cluster_labels
 
@@ -328,7 +351,8 @@ class SentimentTopicClusterer:
 
 # clusterer = SentimentTopicClusterer(
 #     top_n_keywords=3,
-#     top_topics_to_show=5,          # show top 5 topics
+#     top_topics_to_show=3,          # show top 3 topics per sentiment
+#     max_clusters=3,                # keep only the 3 largest clusters
 #     enable_embedding_cache=True    # cache embeddings
 # )
 

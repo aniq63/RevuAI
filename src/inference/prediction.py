@@ -8,6 +8,7 @@ training (0=negative, 1=neutral, 2=positive).
 """
 
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 import numpy as np
@@ -26,6 +27,61 @@ from utils.logger import logging
 
 from src.etl.transform import TransformData
 from src.ml.mlflow_setup import init_mlflow_tracking
+
+
+@contextmanager
+def _neutralize_transformers_lazy_imports():
+    """
+    MLflow 3.x loads sklearn models saved with the 'skops' serialization
+    format. On import, skops' trusted-type discovery walks every module in
+    ``sys.modules`` and calls ``getattr()`` on it.
+
+    The ``transformers`` package (a transitive dependency of
+    sentence-transformers) implements ``__getattr__`` as a lazy loader, so one
+    of those probes triggers an eager import of an optional
+    ``torchvision``-dependent module. When torchvision is not installed this
+    crashes ``mlflow.sklearn.load_model`` with
+    ``ModuleNotFoundError: No module named 'torchvision'``.
+
+    This context manager temporarily replaces the lazy ``__getattr__`` stored
+    in the ``transformers`` module (and its loaded submodules) with a strict
+    one (raising ``AttributeError``) for the duration of the load, so the probe
+    simply skips them. The original loaders are restored afterwards, keeping
+    sentence-transformers fully functional.
+    """
+    touched = []
+
+    def _strict_getattr(attr):
+        # PEP 562: a module-level __getattr__ is called with only the
+        # attribute name (not bound to the module).
+        raise AttributeError(
+            f"module has no attribute {attr!r}"
+        )
+
+    try:
+        for name, module in list(sys.modules.items()):
+            if name != "transformers" and not name.startswith("transformers."):
+                continue
+
+            original = vars(module).get("__getattr__")
+            if original is None:
+                continue
+
+            vars(module)["__getattr__"] = _strict_getattr
+            touched.append((module, original))
+
+        yield
+
+    finally:
+        for module, original in touched:
+            vars(module)["__getattr__"] = original
+
+
+def _load_mlflow_sklearn_model(model_id: str):
+    """Load an MLflow-logged sklearn model while shielding the skops
+    trusted-type scan from ``transformers``' lazy imports."""
+    with _neutralize_transformers_lazy_imports():
+        return mlflow.sklearn.load_model(f"models:/{model_id}")
 
 
 class PredictionPipeline:
@@ -51,16 +107,34 @@ class PredictionPipeline:
     # Mirrors TransformData._sentiment_to_number used during training.
     LABEL_TO_SENTIMENT = {0: "negative", 1: "neutral", 2: "positive"}
 
-    def __init__(self, model_name: str = None, model_alias: str = None):
+    def __init__(
+        self,
+        model_name: str = None,
+        model_alias: str = None,
+        model=None,
+        vectorizer=None,
+    ):
         try:
             logging.info("Initializing Prediction Pipeline")
+
+            self.model_name = model_name or self.MODEL_NAME
+            self.model_alias = model_alias or self.MODEL_ALIAS
+
+            # If both are already loaded (e.g. from app startup / lifespan),
+            # skip the MLflow round-trip entirely.
+            if model is not None and vectorizer is not None:
+                self.model = model
+                self.vectorizer = vectorizer
+                self.transformer = TransformData()
+                logging.info(
+                    "Using pre-loaded model and vectorizer. "
+                    "Skipped MLflow loading."
+                )
+                return
 
             # Point the MLflow client at the same DagsHub-hosted
             # tracking + registry server used by training/registration.
             init_mlflow_tracking()
-
-            self.model_name = model_name or self.MODEL_NAME
-            self.model_alias = model_alias or self.MODEL_ALIAS
 
             self.client = MlflowClient()
 
@@ -108,11 +182,9 @@ class PredictionPipeline:
             # This guarantees the vectorizer matches the exact run
             # that produced the Champion model (same fitted vocabulary).
             # --------------------------------------------------
-            self.model = mlflow.sklearn.load_model(
-                f"models:/{model_id}"
-            )
-            self.vectorizer = mlflow.sklearn.load_model(
-                f"models:/{vectorizer_model_id}"
+            self.model = _load_mlflow_sklearn_model(model_id)
+            self.vectorizer = _load_mlflow_sklearn_model(
+                vectorizer_model_id
             )
 
             # Shared text cleaning pipeline (same as the ETL side).

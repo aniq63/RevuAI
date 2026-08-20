@@ -21,3 +21,6 @@ hdbscan
 keybert
 langchain
 langchain-groq
+fastapi
+uvicorn
+torchvision
