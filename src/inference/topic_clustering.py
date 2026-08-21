@@ -1,9 +1,26 @@
 """
-Topic clustering for reviews.
+Topic clustering for reviews (CPU-optimized).
 
 Clusters reviews per sentiment label and extracts representative keywords
-(topics) for each cluster using sentence embeddings, UMAP, HDBSCAN, and
-KeyBERT. Also builds a clean, user-facing summary for the browser extension.
+(topics) for each cluster using sentence embeddings, UMAP (skipped for small
+groups), HDBSCAN, and KeyBERT. Builds a clean, user-facing summary for the
+browser extension.
+
+CPU optimizations vs. the original implementation:
+    1. Reviews per sentiment are capped (``max_reviews_per_sentiment``)
+       before embedding + clustering -- embedding time scales linearly with
+       review count, and a few hundred reviews is plenty to find topics.
+    2. UMAP is skipped entirely when a sentiment group is small
+       (< ``umap_min_n``). HDBSCAN runs directly on the (L2-normalized)
+       384-dim MiniLM embeddings using euclidean distance, which is
+       equivalent to cosine distance on normalized vectors. UMAP has real
+       fixed overhead on CPU that isn't worth paying for a few hundred rows.
+    3. KeyBERT's per-cluster input text is truncated much more aggressively
+       (default 4000 chars instead of 20000) -- keyword quality plateaus
+       well before that, and extraction time scales with input length.
+    4. Embeddings are still cached in-memory per unique text set, and
+       ``max_clusters`` still bounds the number of KeyBERT calls per
+       sentiment.
 
 Expected DataFrame columns:
     - content  : review text
@@ -13,6 +30,7 @@ Expected DataFrame columns:
 import hashlib
 import json
 import sys
+import time
 import warnings
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -49,15 +67,21 @@ class SentimentTopicClusterer:
         embedding_model_name: str = "all-MiniLM-L6-v2",
         top_n_keywords: int = 3,
         min_reviews_to_cluster: int = 30,
-        top_topics_to_show: int = 3,      # for user-facing summary
-        max_clusters: int = 3,            # cap the number of clusters kept per sentiment
-        enable_embedding_cache: bool = True,  # in-memory cache
+        top_topics_to_show: int = 3,        # for user-facing summary
+        max_clusters: int = 3,              # cap clusters kept per sentiment
+        max_reviews_per_sentiment: int = 400,   # NEW: cap rows sent to embedding/clustering
+        umap_min_n: int = 150,              # NEW: below this, skip UMAP entirely
+        keybert_max_chars: int = 4000,      # NEW: shorter than 20000 -> faster KeyBERT
+        enable_embedding_cache: bool = True,    # in-memory cache
         embedder: Optional[SentenceTransformer] = None,
     ):
         self.top_n_keywords = top_n_keywords
         self.min_reviews_to_cluster = min_reviews_to_cluster
         self.top_topics_to_show = top_topics_to_show
         self.max_clusters = max_clusters
+        self.max_reviews_per_sentiment = max_reviews_per_sentiment
+        self.umap_min_n = umap_min_n
+        self.keybert_max_chars = keybert_max_chars
         self.enable_embedding_cache = enable_embedding_cache
 
         logging.info("Loading embedding + keyword models...")
@@ -90,6 +114,31 @@ class SentimentTopicClusterer:
         return hashlib.md5(joined.encode("utf-8")).hexdigest()
 
     # ------------------------------------------------------------------
+    # Helper: cap rows per sentiment before doing any heavy work.
+    # Sampling (not just head()) keeps a more representative mix of
+    # reviews, and is essentially free compared to embedding cost saved.
+    # ------------------------------------------------------------------
+    def _sample_per_sentiment(self, df: pd.DataFrame) -> pd.DataFrame:
+        if self.max_reviews_per_sentiment is None or self.max_reviews_per_sentiment <= 0:
+            return df
+
+        sampled_parts = []
+        for sentiment in SENTIMENT_LABELS:
+            group = df[df["sentiment"] == sentiment]
+            if len(group) > self.max_reviews_per_sentiment:
+                group = group.sample(
+                    n=self.max_reviews_per_sentiment,
+                    random_state=42,
+                )
+            sampled_parts.append(group)
+
+        # Keep any rows with sentiments outside SENTIMENT_LABELS untouched
+        other = df[~df["sentiment"].isin(SENTIMENT_LABELS)]
+        sampled_parts.append(other)
+
+        return pd.concat(sampled_parts, ignore_index=True)
+
+    # ------------------------------------------------------------------
     # Main entry point
     # ------------------------------------------------------------------
     def fit(self, df: pd.DataFrame):
@@ -109,7 +158,18 @@ class SentimentTopicClusterer:
                     "DataFrame must contain 'content' and 'sentiment' columns."
                 )
 
-            self.df = df.copy()
+            stage_started = time.time()
+
+            # ---- Cap rows per sentiment before any heavy computation ----
+            original_len = len(df)
+            self.df = self._sample_per_sentiment(df.copy())
+            if len(self.df) < original_len:
+                logging.info(
+                    f"Sampled {len(self.df)}/{original_len} reviews "
+                    f"(max {self.max_reviews_per_sentiment} per sentiment) "
+                    "for clustering."
+                )
+
             self.df["content"] = self.df["content"].astype(str)
             texts = self.df["content"].tolist()
 
@@ -122,11 +182,16 @@ class SentimentTopicClusterer:
                 logging.info("Using cached embeddings...")
                 self.embeddings = self._embedding_cache[cache_key]
             else:
-                logging.info("Embedding all reviews...")
+                logging.info(f"Embedding {len(texts)} reviews...")
+                embed_started = time.time()
                 self.embeddings = self.embedder.encode(
                     texts,
-                    batch_size=64,
-                    show_progress_bar=True,
+                    batch_size=128,
+                    show_progress_bar=False,
+                    normalize_embeddings=True,  # cheap, enables UMAP-skip path below
+                )
+                logging.info(
+                    f"Embedding finished in {round(time.time() - embed_started, 2)}s"
                 )
                 if self.enable_embedding_cache and cache_key is not None:
                     self._embedding_cache[cache_key] = self.embeddings
@@ -161,6 +226,11 @@ class SentimentTopicClusterer:
             # ---- Build clean user-facing summary (top topics + counts) ----
             self._build_user_facing_summary()
 
+            logging.info(
+                f"Clustering fit() finished in "
+                f"{round(time.time() - stage_started, 2)}s total."
+            )
+
             return self
 
         except Exception as e:
@@ -183,22 +253,34 @@ class SentimentTopicClusterer:
 
         sub_embeddings = self.embeddings[subset["_embedding_idx"].values]
 
-        # ---- UMAP ----
-        reducer = umap.UMAP(
-            n_components=min(10, n - 2),
-            n_neighbors=min(15, n - 1),
-            min_dist=0.0,
-            metric="cosine",
-            random_state=42,
-        )
-        reduced = reducer.fit_transform(sub_embeddings)
+        # ---- UMAP (skipped for small groups -- fixed overhead not worth it) ----
+        if n >= self.umap_min_n:
+            reducer = umap.UMAP(
+                n_components=min(10, n - 2),
+                n_neighbors=min(15, n - 1),
+                min_dist=0.0,
+                metric="cosine",
+                random_state=42,
+            )
+            reduced = reducer.fit_transform(sub_embeddings)
+            hdbscan_metric = "euclidean"
+        else:
+            logging.info(
+                f"[{sentiment_label}] n={n} < umap_min_n="
+                f"{self.umap_min_n}; skipping UMAP, clustering directly "
+                "on normalized embeddings."
+            )
+            # Embeddings were encoded with normalize_embeddings=True, so
+            # euclidean distance on them is monotonic with cosine distance.
+            reduced = sub_embeddings
+            hdbscan_metric = "euclidean"
 
         # ---- HDBSCAN ----
         min_cluster_size = int(np.clip(n * 0.02, 15, 80))
         clusterer = hdbscan.HDBSCAN(
             min_cluster_size=min_cluster_size,
             min_samples=max(5, min_cluster_size // 5),
-            metric="euclidean",
+            metric=hdbscan_metric,
             cluster_selection_method="eom",
         )
         cluster_labels = clusterer.fit_predict(reduced)
@@ -240,7 +322,9 @@ class SentimentTopicClusterer:
             cluster_reviews = (
                 subset[subset["cluster"] == cluster_id]["content"].tolist()
             )
-            combined_text = " ".join(cluster_reviews[:200])[:20000]
+            # Shorter cap than before -- KeyBERT extraction time scales with
+            # input length and keyword quality plateaus well under 20k chars.
+            combined_text = " ".join(cluster_reviews[:100])[: self.keybert_max_chars]
 
             try:
                 keywords = self.kw_model.extract_keywords(
@@ -351,9 +435,12 @@ class SentimentTopicClusterer:
 
 # clusterer = SentimentTopicClusterer(
 #     top_n_keywords=3,
-#     top_topics_to_show=3,          # show top 3 topics per sentiment
-#     max_clusters=3,                # keep only the 3 largest clusters
-#     enable_embedding_cache=True    # cache embeddings
+#     top_topics_to_show=3,             # show top 3 topics per sentiment
+#     max_clusters=3,                   # keep only the 3 largest clusters
+#     max_reviews_per_sentiment=400,    # cap rows sent to embedding/clustering
+#     umap_min_n=150,                   # skip UMAP below this group size
+#     keybert_max_chars=4000,           # shorter KeyBERT input -> faster
+#     enable_embedding_cache=True,      # cache embeddings
 # )
 
 # clusterer.fit(df)   # df must have columns: content, sentiment

@@ -7,9 +7,27 @@ ONCE at application startup:
     - Sentence embedding model (SentenceTransformer, used by topic clustering)
 
 These are stored on `app.state` so every request reuses the same in-memory
-objects instead of re-loading them from MLflow / disk on every call, which
-would otherwise add several seconds of latency per request.
+objects instead of re-loading them from MLflow / disk on every call.
+
+CPU-specific notes (this app is deployed on CPU-only machines):
+    - torch / OpenMP thread counts are pinned explicitly. By default,
+      torch and OpenBLAS/MKL each try to use ALL available cores, and on a
+      multi-worker or multi-request server that causes thread contention
+      that actually slows things down. Pinning to a sane number keeps
+      per-request latency predictable.
+    - A simple in-memory, TTL-based result cache is attached to app.state so
+      repeated /analyze calls for the same app_id within the TTL window
+      return instantly instead of re-running the whole pipeline.
 """
+
+import os
+
+# IMPORTANT: thread-count env vars must be set BEFORE numpy/torch/etc. are
+# imported anywhere in the process, otherwise they have no effect.
+os.environ.setdefault("OMP_NUM_THREADS", "4")
+os.environ.setdefault("MKL_NUM_THREADS", "4")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "4")
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 import sys
 import time
@@ -27,16 +45,22 @@ from utils.exception import MyException
 
 from src.inference.prediction import PredictionPipeline
 from sentence_transformers import SentenceTransformer
+import torch
 
 
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+
+TORCH_NUM_THREADS = int(os.environ.get("TORCH_NUM_THREADS", "4"))
+
+RESULT_CACHE_TTL_SECONDS = int(os.environ.get("RESULT_CACHE_TTL_SECONDS", str(30 * 60)))
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Startup: load the Champion model, TF-IDF vectorizer, and the sentence
-    embedding model once, and attach them to app.state.
+    Startup: pin CPU thread counts, load the Champion model, TF-IDF
+    vectorizer, and the sentence embedding model once, and attach them
+    (plus an empty result cache) to app.state.
 
     Shutdown: release references (garbage collected automatically).
     """
@@ -44,6 +68,12 @@ async def lifespan(app: FastAPI):
     logging.info("===== Application startup: loading models =====")
 
     try:
+        # --------------------------------------------------
+        # 0. Pin CPU thread counts (see module docstring)
+        # --------------------------------------------------
+        torch.set_num_threads(TORCH_NUM_THREADS)
+        logging.info(f"torch.set_num_threads({TORCH_NUM_THREADS})")
+
         # --------------------------------------------------
         # 1. Prediction Pipeline (Champion model + vectorizer)
         # --------------------------------------------------
@@ -56,9 +86,16 @@ async def lifespan(app: FastAPI):
         # 2. Sentence Embedding Model (shared with topic clustering)
         # --------------------------------------------------
         logging.info(f"Loading SentenceTransformer('{EMBEDDING_MODEL_NAME}')...")
-        embedder = SentenceTransformer(EMBEDDING_MODEL_NAME)
+        embedder = SentenceTransformer(EMBEDDING_MODEL_NAME, device="cpu")
         app.state.embedder = embedder
         logging.info("Embedding model loaded successfully.")
+
+        # --------------------------------------------------
+        # 3. Result cache: {cache_key: (result_dict, expires_at_epoch)}
+        # --------------------------------------------------
+        app.state.result_cache = {}
+        app.state.result_cache_ttl = RESULT_CACHE_TTL_SECONDS
+        logging.info(f"Result cache TTL set to {RESULT_CACHE_TTL_SECONDS}s")
 
         elapsed = round(time.time() - started_at, 2)
         logging.info(f"===== Startup complete in {elapsed}s =====")
@@ -76,6 +113,7 @@ async def lifespan(app: FastAPI):
     logging.info("===== Application shutdown: releasing resources =====")
     app.state.prediction_pipeline = None
     app.state.embedder = None
+    app.state.result_cache = {}
 
 
 app = FastAPI(
@@ -84,6 +122,13 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+
+@app.get("/")
+def read_root():
+    return {
+        "message": "RevuAI Inference API that Scrapes, predicts sentiment, clusters topics, and generates LLM insights for app reviews"
+    }
 
 
 @app.get("/health")
@@ -97,7 +142,9 @@ async def health_check():
         "status": "ok" if models_ready else "loading",
         "prediction_pipeline_loaded": app.state.prediction_pipeline is not None,
         "embedder_loaded": app.state.embedder is not None,
+        "cached_results": len(getattr(app.state, "result_cache", {})),
     }
+
 
 # -------------------------
 # Router
@@ -108,5 +155,4 @@ app.include_router(inference_router)
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

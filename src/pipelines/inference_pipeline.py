@@ -14,6 +14,10 @@ Pre-loaded objects (model/vectorizer via ``PredictionPipeline`` and the
 sentence encoder via ``SentenceTransformer``) can be injected at construction
 time so expensive model loading happens once at app startup / lifespan instead
 of on every request.
+
+Every stage now logs its own duration so you can see exactly where request
+latency goes (scrape / predict / sentiment-summary / clustering / LLM),
+instead of only the total.
 """
 
 import asyncio
@@ -53,12 +57,24 @@ class InferencePipeline:
         batch_size: int = 500,
         prediction_pipeline: Optional[PredictionPipeline] = None,
         embedder: Optional["SentenceTransformer"] = None,
+        # ---- Clustering tuning knobs (CPU-friendly defaults) ----
+        max_reviews_per_sentiment: int = 400,
+        umap_min_n: int = 150,
+        keybert_max_chars: int = 4000,
+        max_clusters: int = 3,
+        top_topics_to_show: int = 3,
     ):
         self.app_id = app_id
         self.scraping_method = scraping_method
         self.batch_size = batch_size
         self.prediction_pipeline = prediction_pipeline
         self.embedder = embedder
+
+        self.max_reviews_per_sentiment = max_reviews_per_sentiment
+        self.umap_min_n = umap_min_n
+        self.keybert_max_chars = keybert_max_chars
+        self.max_clusters = max_clusters
+        self.top_topics_to_show = top_topics_to_show
 
     # ====================================
     # Data Scraping
@@ -263,13 +279,17 @@ class InferencePipeline:
             )
 
             # ========================================
-            # Initialize Topic Clusterer
+            # Initialize Topic Clusterer (CPU-tuned defaults, passed through)
             # ========================================
             clusterer = SentimentTopicClusterer(
                 embedding_model_name="all-MiniLM-L6-v2",
                 top_n_keywords=3,
                 min_reviews_to_cluster=30,
-                top_topics_to_show=3,
+                top_topics_to_show=self.top_topics_to_show,
+                max_clusters=self.max_clusters,
+                max_reviews_per_sentiment=self.max_reviews_per_sentiment,
+                umap_min_n=self.umap_min_n,
+                keybert_max_chars=self.keybert_max_chars,
                 enable_embedding_cache=True,
                 embedder=self.embedder,
             )
@@ -362,11 +382,13 @@ class InferencePipeline:
         # ==========================================
         # 1. Data Scraping (or injected data)
         # ==========================================
+        t0 = time.time()
         scrape_df = (
             df
             if (df is not None and not df.empty)
             else self.scrape_data()
         )
+        logging.info(f"[TIMING] scrape stage: {round(time.time() - t0, 2)}s")
 
         review_count = int(len(scrape_df))
         if review_count == 0:
@@ -386,29 +408,37 @@ class InferencePipeline:
         # ==========================================
         # 2. Model Prediction
         # ==========================================
+        t0 = time.time()
         pred_df = self.reviews_prediction(df=scrape_df)
+        logging.info(f"[TIMING] prediction stage: {round(time.time() - t0, 2)}s")
 
         # ==========================================
         # 3. Sentiment Summary
         # ==========================================
+        t0 = time.time()
         top_reviews, sentiment_percentages = (
             self.get_sentiment_summary(df=pred_df)
         )
+        logging.info(f"[TIMING] sentiment summary stage: {round(time.time() - t0, 2)}s")
 
         # ==========================================
         # 4. Topic Clustering
         # ==========================================
+        t0 = time.time()
         topic_summary = {}
         if not pred_df.empty:
             _, topic_summary = self.clustering(df=pred_df)
+        logging.info(f"[TIMING] clustering stage: {round(time.time() - t0, 2)}s")
 
         # ==========================================
         # 5. LLM Insight
         # ==========================================
+        t0 = time.time()
         llm_insight = self.llm_insights(
             top_reviews=top_reviews,
             topic_summary=topic_summary,
         )
+        logging.info(f"[TIMING] llm insight stage: {round(time.time() - t0, 2)}s")
 
         elapsed = round(time.time() - started_at, 2)
         logging.info(
