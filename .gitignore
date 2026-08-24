@@ -225,3 +225,5 @@ help.txt
 # Folders
 logs
 mlruns
+
+testing_load

@@ -31,6 +31,8 @@ class MLPipeline:
     Chains the ML steps into a single pipeline and returns the trained model
     along with the test F1 score and the MLflow run id.
     """
+    def __call__(self, sample_size : int = 35000):
+        self.sample_size = sample_size
 
     async def run_ml_pipeline(self) -> tuple:
         """Run the ML Pipeline and return (model, test_f1, run_id)."""
@@ -41,7 +43,7 @@ class MLPipeline:
             # Data Ingestion
             # ======================
             logging.info("Start the Data ingestion from the data lake")
-            data_ingest = DataIngestion()
+            data_ingest = DataIngestion(sample_size=self.sample_size)
             df = await data_ingest.fetch_latest_async()
             logging.info("Data Ingestion Completed")
 
