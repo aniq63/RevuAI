@@ -44,13 +44,15 @@ class ReviewInsightGenerator:
 
     def __init__(
         self,
-        model_name: str = "openai/gpt-oss-20b",
+        model_name: Optional[str] = None,
         request_timeout: float = 60.0,
         max_retries: int = 3,
         top_n_reviews: int = 5,
     ):
         try:
-            self.model_name = model_name
+            self.model_name = model_name or os.getenv(
+                "GROQ_MODEL", "openai/gpt-oss-20b"
+            )
             self.top_n_reviews = top_n_reviews
 
             self.api_key = os.getenv("GROQ_API_KEY")
@@ -80,7 +82,9 @@ class ReviewInsightGenerator:
 
             self.result_text: Optional[str] = None
 
-            logging.info(f"ReviewInsightGenerator initialized with model={model_name}")
+            logging.info(
+                f"ReviewInsightGenerator initialized with model={self.model_name}"
+            )
 
         except Exception as e:
             logging.error(f"Failed to initialize ReviewInsightGenerator: {e}")

@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "RevuAI",
+  "version": "1.0.0",
+  "description": "Play Store review intelligence - sentiment analysis, topic clustering and AI insight.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "RevuAI"
+  },
+  "permissions": [
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://localhost:8000/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

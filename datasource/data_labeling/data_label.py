@@ -1,20 +1,46 @@
 """
-Label the data using the Open Source llm from the Hugging face library
+Label App reviews using an open-source Hugging Face LLM/model.
 
-Label the App reviews into three sentiments Positive , Neagitive and Neutral
+Labels:
+    Positive
+    Negative
+    Neutral
+
+CLI testing:
+    Enter a review in the terminal and get its sentiment.
 """
 
 import pandas as pd
 from transformers import pipeline
 from tqdm.auto import tqdm
 
-file_path = ""
 
-# Load dataset
-df = pd.read_csv(
-    file_path,
-    engine='python'
+MODEL_NAME = "cardiffnlp/twitter-roberta-base-sentiment-latest"
+
+
+# Load the open-source sentiment classification model once
+sentiment_pipe = pipeline(
+    "text-classification",
+    model=MODEL_NAME
 )
+
+
+def normalize_label(label):
+    """Convert model labels to Positive, Negative, Neutral."""
+
+    label = label.lower()
+
+    if "positive" in label:
+        return "Positive"
+
+    if "negative" in label:
+        return "Negative"
+
+    if "neutral" in label:
+        return "Neutral"
+
+    return label
+
 
 # Batch prediction function
 def predict_sentiment_batch(texts, batch_size=32):
@@ -32,33 +58,55 @@ def predict_sentiment_batch(texts, batch_size=32):
             for text in batch
         ]
 
-        # Load the opensource text classification model
-        pipe = pipeline("text-classification", model="cardiffnlp/twitter-roberta-base-sentiment-latest")
-
-        predictions = pipe(
+        predictions = sentiment_pipe(
             batch,
             batch_size=batch_size,
             truncation=True,
             max_length=512
         )
 
-        results.extend([pred["label"] for pred in predictions])
+        results.extend(
+            [normalize_label(pred["label"]) for pred in predictions]
+        )
 
     return results
 
 
-# Get sentiment labels
-df["label"] = predict_sentiment_batch(
-    df["content"].tolist(),
-    batch_size=32
-)
+# ---------------------------------------------------------
+# CLI Testing
+# ---------------------------------------------------------
 
-# Save labeled dataset
-output_path = ""
+def cli_testing():
+    print("\n" + "=" * 60)
+    print("       App Review Sentiment Classifier")
+    print("=" * 60)
+    print(f"Model: {MODEL_NAME}")
+    print("Type 'exit' or 'quit' to stop.\n")
 
-df.to_csv(
-    output_path,
-    index=False
-)
+    while True:
+        review = input("Enter app review: ").strip()
 
-print(f"Saved labeled dataset to: {output_path}")
+        if review.lower() in ["exit", "quit"]:
+            print("\nExiting...")
+            break
+
+        if not review:
+            print("Please enter a review.\n")
+            continue
+
+        prediction = sentiment_pipe(
+            review,
+            truncation=True,
+            max_length=512
+        )[0]
+
+        label = normalize_label(prediction["label"])
+        score = prediction["score"]
+
+        print(f"\nSentiment : {label}")
+        print(f"Confidence: {score:.4f}")
+        print("-" * 60)
+
+
+if __name__ == "__main__":
+    cli_testing()

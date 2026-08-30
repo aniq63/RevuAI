@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RevuAI - Play Store Review Intelligence</title>
+  <meta name="description" content="Play Store review intelligence powered by RevuAI." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root{--bg:#0b0e14;--panel:#12161f;--panel-2:#171c27;--border:#232a38;--text:#e7ebf3;--muted:#8b93a7;--accent:#6366f1;--accent-2:#8b5cf6;--radius:14px;font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html,body{min-height:100%;background:radial-gradient(760px 520px at 20% -10%,#1b2030 0%,var(--bg) 55%);color:var(--text);min-width:400px;width:480px;}
+    .app-shell{max-width:480px;margin:0 auto;padding:24px 20px 36px;}
+    .header{display:flex;align-items:center;gap:14px;margin-bottom:28px;}
+    .logo{width:42px;height:42px;border-radius:12px;flex-shrink:0;object-fit:cover;display:block;}
+    .header h1{font-size:22px;letter-spacing:-.02em;} .header p{margin-top:2px;color:var(--muted);font-size:13px;}
+    .backend-warn{color:#fca5a5;}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:20px;}
+    .form-row{display:flex;gap:12px;flex-wrap:wrap;}
+    .field{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;}
+    .field label{font-size:13px;color:var(--muted);}
+    .field input[type="text"]{background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:14px;outline:none;width:100%;transition:border-color .15s;font-family:inherit;}
+    .field input[type="text"]:focus{border-color:var(--accent);}
+    .field-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:24px;}
+    .field-status{font-size:11px;color:#7ee8a0;min-height:14px;}
+    .detect-button{background:none;border:0;color:#a5b4fc;font:inherit;font-size:11px;cursor:pointer;padding:4px 0;white-space:nowrap;}
+    .detect-button:hover{text-decoration:underline;}
+    .pill-label{font-size:13px;color:var(--muted);margin-bottom:6px;margin-top:16px;}
+    .sampling-note{color:var(--muted);font-size:12px;line-height:1.5;margin-top:10px;}
+    .sampling-note strong{color:var(--text);font-weight:600;}
+    .select-pills{display:flex;gap:8px;flex-wrap:wrap;}
+    .pill{padding:9px 14px;border-radius:999px;border:1px solid var(--border);background:var(--panel-2);color:var(--muted);font-size:13px;cursor:pointer;user-select:none;transition:all .15s;}
+    .pill.active{border-color:var(--accent);color:#fff;background:linear-gradient(135deg,rgba(99,102,241,.25),rgba(139,92,246,.25));}
+    .pill:hover{border-color:var(--accent);}
+    .actions{display:flex;align-items:center;gap:12px;margin-top:18px;flex-wrap:wrap;}
+    .btn-analyze{background:linear-gradient(135deg,var(--accent),var(--accent-2));border:none;color:#fff;padding:12px 22px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:transform .1s,opacity .15s;display:flex;align-items:center;gap:8px;font-family:inherit;}
+    .btn-analyze:hover:not(:disabled){transform:translateY(-1px);} .btn-analyze:disabled{opacity:.5;cursor:not-allowed;}
+    .checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer;}
+    .spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;flex-shrink:0;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .error-box{margin-top:16px;padding:14px 16px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.35);border-radius:10px;color:#fca5a5;font-size:13px;}
+    .loading-wrap{margin-top:16px;padding:18px;} .loading-title{font-size:15px;font-weight:600;margin-bottom:4px;} .loading-sub{color:var(--muted);font-size:13px;margin-bottom:22px;}
+    .progress-track{height:8px;border-radius:999px;background:var(--panel-2);border:1px solid var(--border);overflow:hidden;margin-bottom:22px;}
+    .progress-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .6s ease;}
+    .stage-list{display:flex;flex-direction:column;gap:14px;}
+    .stage{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--muted);transition:color .2s;}
+    .stage.active{color:var(--text);} .stage.done{color:#7ee8a0;}
+    .stage-icon{width:22px;height:22px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;}
+    .stage.active .stage-icon{border-color:var(--accent);animation:pulse 1.2s ease-in-out infinite;}
+    .stage.done .stage-icon{border-color:#22c55e;background:rgba(34,197,94,.15);}
+    @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(99,102,241,.4);}50%{box-shadow:0 0 0 6px rgba(99,102,241,0);}}
+    .stage-log{font-family:"SF Mono","Fira Code",monospace;font-size:11.5px;color:#6b7280;margin-left:34px;margin-top:-8px;min-height:16px;}
+    .results{margin-top:28px;display:flex;flex-direction:column;gap:22px;}
+    .results-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+    .app-title{font-size:18px;font-weight:700;}
+    .meta-pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+    .meta-pill{font-size:12px;color:var(--muted);border:1px solid var(--border);padding:5px 10px;border-radius:999px;background:var(--panel-2);}
+    .cache-badge{font-size:11px;padding:4px 10px;border-radius:999px;border:1px solid rgba(34,197,94,.4);background:rgba(34,197,94,.12);color:#7ee8a0;}
+    .footer-actions{display:flex;gap:10px;}
+    .btn-secondary{background:var(--panel-2);border:1px solid var(--border);color:var(--text);padding:10px 16px;border-radius:10px;font-size:13px;cursor:pointer;font-family:inherit;transition:border-color .15s;}
+    .btn-secondary:hover{border-color:var(--accent);}
+    .section-title{font-size:15px;font-weight:600;margin:0 0 14px;display:flex;align-items:center;gap:8px;}
+    .sentiment-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;}
+    .sentiment-card{border-radius:12px;padding:18px;border:1px solid var(--border);background:var(--panel-2);overflow:hidden;}
+    .sent-pct{font-size:26px;font-weight:700;} .sent-label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin-top:2px;}
+    .bar{margin-top:12px;height:6px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden;} .bar-fill{height:100%;border-radius:999px;}
+    .review-tabs{display:flex;gap:8px;margin-bottom:14px;}
+    .review-card{border:1px solid var(--border);background:var(--panel-2);border-radius:12px;padding:14px 16px;margin-bottom:10px;font-size:13.5px;line-height:1.5;}
+    .review-card .thumb{color:var(--muted);font-size:12px;margin-top:8px;display:flex;align-items:center;gap:6px;}
+    .insight-body{font-size:14px;line-height:1.7;color:#d6dae4;}
+    .insight-body h2{font-size:16px;color:#fff;margin-top:20px;margin-bottom:8px;} .insight-body h2:first-child{margin-top:0;}
+    .insight-body ul{padding-left:20px;} .insight-body li{margin-bottom:6px;} .insight-body p{margin-bottom:10px;} .insight-body strong{color:#e7ebf3;}
+    .insight-ts{margin-top:14px;font-size:11px;color:var(--muted);}
+    .topic-chart{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;min-height:280px;}
+    .topic-group-title{font-size:13px;font-weight:600;text-align:center;margin-bottom:12px;}
+    .topic-item{margin-bottom:12px;}
+    .topic-label{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:#c7cbd6;margin-bottom:5px;}
+    .topic-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .topic-value{color:var(--muted);white-space:nowrap;}
+    .topic-track{height:18px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;}
+    .topic-bar{height:100%;border-radius:4px;min-width:2px;}
+    .topic-chart{grid-template-columns:1fr;gap:8px;}
+    .topic-item{margin-bottom:10px;}
+    .hidden{display:none!important;}
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <div class="header">
+    <img class="logo" src="logo.png" alt="RevuAI logo" />
+    <div>
+      <h1>RevuAI</h1>
+      <p>Play Store review intelligence &mdash; sentiment, topics &amp; AI insight
+        <span id="backend-warn" class="backend-warn hidden">&middot; backend unreachable</span>
+      </p>
+    </div>
+  </div>
+
+  <form class="card" id="analyze-form">
+    <div class="form-row">
+      <div class="field">
+        <label for="app-id-input">App ID or Play Store link</label>
+        <input id="app-id-input" type="text"
+          placeholder="com.supercell.clashofclans or https://play.google.com/store/apps/details?id=..."
+          autocomplete="off" autofocus />
+        <div class="field-actions">
+          <div class="field-status" id="app-detection-status"></div>
+          <button class="detect-button" id="detect-app-button" type="button">Use current tab</button>
+        </div>
+      </div>
+    </div>
+    <div class="pill-label">Scraping method</div>
+    <div class="select-pills" id="method-pills">
+      <div class="pill active" data-value="new_reviews">Newest reviews</div>
+      <div class="pill" data-value="relevant_reviews">Most relevant</div>
+      <div class="pill" data-value="all_reviews">All reviews</div>
+    </div>
+    <p class="sampling-note"><strong>Statistically, you don't need millions of reviews.</strong><br />Analyzing just <strong>1,000-5,000 reviews</strong> can provide a reliable picture of an app's overall sentiment.</p>
+    <div class="actions">
+      <button class="btn-analyze" type="submit" id="analyze-btn">
+        <span id="btn-spinner" class="spinner hidden"></span>
+        <span id="btn-label">Analyze reviews</span>
+      </button>
+      <label class="checkbox-row">
+        <input type="checkbox" id="force-refresh-cb" />
+        Force refresh (skip cache)
+      </label>
+    </div>
+    <div id="form-error" class="error-box hidden"></div>
+  </form>
+
+  <div class="card loading-wrap hidden" id="loading-screen">
+    <div class="loading-title">Analyzing <span id="loading-app-id"></span></div>
+    <div class="loading-sub">
+      This runs a full ML pipeline (scrape &rarr; predict &rarr; cluster &rarr; LLM insight)
+      &mdash; usually 30s&ndash;2min depending on review volume.
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill" style="width:2%"></div>
+    </div>
+    <div class="stage-list" id="stage-list"></div>
+  </div>
+
+  <div class="card hidden" style="margin-top:20px;" id="api-error-card">
+    <div class="error-box" id="api-error-msg"></div>
+  </div>
+
+  <div class="results hidden" id="results-view">
+    <div class="results-header">
+      <div>
+        <div class="app-title" id="res-app-title"></div>
+        <div class="meta-pills" id="res-meta-pills"></div>
+      </div>
+      <div class="footer-actions">
+        <button class="btn-secondary" id="btn-new-analysis">&larr; New analysis</button>
+        <button class="btn-secondary" id="btn-force-refresh">Force refresh</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title">
+        Sentiment breakdown
+        <span style="color:var(--muted);font-weight:400;font-size:12px;" id="sentiment-count"></span>
+      </div>
+      <div class="sentiment-grid" id="sentiment-grid"></div>
+    </div>
+    <div class="card">
+      <div class="section-title">Top topics by sentiment</div>
+      <div id="topic-chart-container"></div>
+      <div id="topic-no-data" style="color:var(--muted);font-size:13px;" class="hidden">
+        Not enough reviews to form meaningful topic clusters.
+      </div>
+    </div>
+    <div class="card hidden" id="insight-section">
+      <div class="section-title">AI-generated insight</div>
+      <div class="insight-body" id="insight-body"></div>
+      <div class="insight-ts" id="insight-ts"></div>
+    </div>
+    <div class="card hidden" id="reviews-section">
+      <div class="section-title">Top reviews</div>
+      <div class="review-tabs" id="review-tabs"></div>
+      <div id="review-list"></div>
+    </div>
+  </div>
+</div>
+
+<script src="popup.js"></script>
+</body>
+</html>
