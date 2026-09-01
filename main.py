@@ -22,8 +22,6 @@ CPU-specific notes (this app is deployed on CPU-only machines):
 
 import os
 
-# IMPORTANT: thread-count env vars must be set BEFORE numpy/torch/etc. are
-# imported anywhere in the process, otherwise they have no effect.
 os.environ.setdefault("OMP_NUM_THREADS", "4")
 os.environ.setdefault("MKL_NUM_THREADS", "4")
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "4")
@@ -155,4 +153,5 @@ app.include_router(inference_router)
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.environ.get("PORT", "8000"))
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)

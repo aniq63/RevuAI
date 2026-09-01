@@ -46,3 +46,4 @@ help.txt
 *.code-workspace
 .agents/
 extension
+.env.example
