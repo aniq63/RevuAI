@@ -1,0 +1,16 @@
+# Dependencies imported by the production FastAPI inference service.
+fastapi
+uvicorn
+python-dotenv
+pyyaml
+numpy
+pandas
+scikit-learn
+mlflow
+dagshub
+google-play-scraper
+sentence-transformers
+umap-learn
+hdbscan
+keybert
+langchain-groq

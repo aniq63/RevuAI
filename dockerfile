@@ -10,11 +10,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN pip install --upgrade pip
 
-COPY requirements.txt .
+COPY requirements-runtime.txt .
 
 RUN python -m venv /opt/venv && \
     /opt/venv/bin/pip install --upgrade pip && \
-    /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+    /opt/venv/bin/pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.5.1+cpu && \
+    /opt/venv/bin/pip install --no-cache-dir -r requirements-runtime.txt
 
 
 FROM python:3.11-slim AS runtime

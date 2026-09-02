@@ -17,6 +17,7 @@ ENV
 .env.*
 *.env
 datasource/
+database/
 **/*.csv
 **/*.parquet
 **/*.arrow
@@ -30,6 +31,17 @@ mlflow.db
 notebooks/
 **/.ipynb_checkpoints
 **/*.ipynb
+src/etl/extract.py
+src/etl/load.py
+src/etl/scrapping.py
+src/ml/data_ingestion.py
+src/ml/data_split.py
+src/ml/features.py
+src/ml/registry.py
+src/ml/train.py
+src/pipelines/etl_pipeline.py
+src/pipelines/etl_pro_pipeline.py
+src/pipelines/ml_pipeline.py
 tests/
 testing_load/
 pytest.ini
@@ -47,3 +59,4 @@ help.txt
 .agents/
 extension
 .env.example
+requirements-dev.txt
