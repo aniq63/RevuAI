@@ -113,7 +113,7 @@ jobs:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
-          IMAGE: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          IMAGE: ghcr.io/${{ github.repository_owner }}/revuai:sha-${{ github.sha }}
 
         run: |
 
