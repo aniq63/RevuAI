@@ -315,7 +315,6 @@ jobs:
               --restart unless-stopped \
               --env-file ~/revuai/.env \
               -e NUMBA_CACHE_DIR=/tmp \
-              -e MLFLOW_TRACKING_URI=sqlite:////tmp/mlruns.db \
               -e HF_HOME=/tmp \
               -p 8000:8000 \
               "$IMAGE"
