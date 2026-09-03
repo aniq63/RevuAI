@@ -1,3 +1,4 @@
+```yaml
 name: RevuAI CI/CD
 
 on:
@@ -7,15 +8,22 @@ on:
 
   workflow_dispatch:
 
+
+# ============================================================
+# Global environment
+# ============================================================
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/revuai
 
+
 jobs:
 
-  # ==========================================
-  # 1. Run Tests
-  # ==========================================
+  # ============================================================
+  # 1. TEST
+  # ============================================================
+
   test:
 
     runs-on: ubuntu-latest
@@ -25,24 +33,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Pytest
+
+      - name: Run tests
         run: |
           pytest
 
 
-  # ==========================================
-  # 2. Build and Push Docker Image
-  # ==========================================
+  # ============================================================
+  # 2. BUILD AND PUSH DOCKER IMAGE
+  # ============================================================
+
   build-and-push:
 
     needs: test
@@ -53,23 +65,38 @@ jobs:
       contents: read
       packages: write
 
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+
     steps:
 
       - name: Checkout repository
         uses: actions/checkout@v4
 
 
+      # --------------------------------------------------------
+      # Docker Buildx
+      # --------------------------------------------------------
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
 
-      - name: Log in to GHCR
+      # --------------------------------------------------------
+      # Login to GitHub Container Registry
+      # --------------------------------------------------------
+
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+
+      # --------------------------------------------------------
+      # Generate Docker image tags
+      # --------------------------------------------------------
 
       - name: Extract Docker metadata
         id: meta
@@ -82,7 +109,11 @@ jobs:
             type=raw,value=latest
 
 
-      - name: Build and Push Docker image
+      # --------------------------------------------------------
+      # Build and push image
+      # --------------------------------------------------------
+
+      - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -97,9 +128,25 @@ jobs:
           cache-to: type=gha,mode=max
 
 
-  # ==========================================
-  # 3. Deploy to EC2
-  # ==========================================
+      # --------------------------------------------------------
+      # Save exact SHA image name for deployment
+      # --------------------------------------------------------
+
+      - name: Set image output
+        id: image
+        run: |
+          IMAGE="ghcr.io/${{ github.repository_owner }}/revuai:sha-${{ github.sha }}"
+
+          echo "Docker image:"
+          echo "$IMAGE"
+
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+
+  # ============================================================
+  # 3. DEPLOY TO EC2
+  # ============================================================
+
   deploy:
 
     needs: build-and-push
@@ -109,17 +156,21 @@ jobs:
     steps:
 
       - name: Deploy to EC2
+
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
-          IMAGE: ghcr.io/${{ github.repository_owner }}/revuai:sha-${{ github.sha }}
+
+          IMAGE: ${{ needs.build-and-push.outputs.image }}
 
         run: |
 
-          # ----------------------------------
+          # ==================================================
           # Setup SSH
-          # ----------------------------------
+          # ==================================================
+
+          echo "Setting up SSH..."
 
           mkdir -p ~/.ssh
 
@@ -130,118 +181,165 @@ jobs:
           ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
 
 
-          # ----------------------------------
-          # Deploy
-          # ----------------------------------
+          # ==================================================
+          # Connect to EC2
+          # ==================================================
 
           ssh \
             -i ~/.ssh/ec2_key \
             "$EC2_USERNAME@$EC2_HOST" \
             "IMAGE='$IMAGE' bash -s" << 'REMOTE_SCRIPT'
 
-              set -e
 
-              echo "======================================"
-              echo "Starting RevuAI deployment"
-              echo "Image: $IMAGE"
-              echo "======================================"
+            set -e
 
 
-              # --------------------------------
-              # Pull new image
-              # --------------------------------
+            echo "======================================"
+            echo "Starting RevuAI deployment"
+            echo "======================================"
 
-              echo "Pulling new Docker image..."
+            echo "Image:"
+            echo "$IMAGE"
 
-              docker pull "$IMAGE"
-
-
-              # --------------------------------
-              # Stop old container
-              # --------------------------------
-
-              echo "Stopping old container..."
-
-              docker stop revuai-backend || true
+            echo "======================================"
 
 
-              # --------------------------------
-              # Remove old container
-              # --------------------------------
+            # ==================================================
+            # Pull new Docker image
+            # ==================================================
 
-              echo "Removing old container..."
+            echo ""
+            echo "Pulling new Docker image..."
 
-              docker rm revuai-backend || true
-
-
-              # --------------------------------
-              # Start new container
-              # --------------------------------
-
-              echo "Starting new container..."
-
-              docker run -d \
-                --name revuai-backend \
-                --env-file ~/revuai/.env \
-                -p 8000:8000 \
-                "$IMAGE"
+            docker pull "$IMAGE"
 
 
-              # --------------------------------
-              # Wait for health check
-              # --------------------------------
+            # ==================================================
+            # Stop old container
+            # ==================================================
 
-              echo "Waiting for application..."
+            echo ""
+            echo "Stopping old container..."
 
-              for i in {1..30}; do
-
-                if curl -fs http://localhost:8000/health > /tmp/health.json; then
-
-                  echo "Health check passed!"
-
-                  cat /tmp/health.json
-
-                  break
-
-                fi
-
-                echo "Waiting... ($i/30)"
-
-                sleep 5
-
-              done
+            docker stop revuai-backend || true
 
 
-              # --------------------------------
-              # Final health verification
-              # --------------------------------
+            # ==================================================
+            # Remove old container
+            # ==================================================
 
-              if ! curl -fs http://localhost:8000/health; then
+            echo ""
+            echo "Removing old container..."
 
-                echo "======================================"
-                echo "DEPLOYMENT FAILED"
-                echo "======================================"
+            docker rm revuai-backend || true
 
-                docker logs --tail 100 revuai-backend
 
-                exit 1
+            # ==================================================
+            # Start new container
+            # ==================================================
+
+            echo ""
+            echo "Starting new container..."
+
+            docker run -d \
+              --name revuai-backend \
+              --restart unless-stopped \
+              --env-file ~/revuai/.env \
+              -p 8000:8000 \
+              "$IMAGE"
+
+
+            # ==================================================
+            # Wait for application to become healthy
+            # ==================================================
+
+            echo ""
+            echo "Waiting for application..."
+
+            HEALTHY=false
+
+            for i in {1..30}; do
+
+              if curl -fs http://localhost:8000/health > /tmp/health.json; then
+
+                echo ""
+                echo "Health check passed!"
+
+                cat /tmp/health.json
+
+                HEALTHY=true
+
+                break
 
               fi
 
+              echo "Waiting... ($i/30)"
 
-              # --------------------------------
-              # Cleanup unused images
-              # --------------------------------
+              sleep 5
 
-              echo "Cleaning unused Docker images..."
-
-              docker image prune -af
+            done
 
 
+            # ==================================================
+            # Verify deployment
+            # ==================================================
+
+            if [ "$HEALTHY" != "true" ]; then
+
+              echo ""
               echo "======================================"
-              echo "DEPLOYMENT SUCCESSFUL"
+              echo "DEPLOYMENT FAILED"
               echo "======================================"
 
-              docker ps
+              echo ""
+              echo "Container status:"
+
+              docker ps -a --filter "name=revuai-backend"
+
+
+              echo ""
+              echo "Container logs:"
+
+              docker logs --tail 100 revuai-backend
+
+
+              exit 1
+
+            fi
+
+
+            # ==================================================
+            # Show running container
+            # ==================================================
+
+            echo ""
+            echo "======================================"
+            echo "DEPLOYMENT SUCCESSFUL"
+            echo "======================================"
+
+            docker ps --filter "name=revuai-backend"
+
+
+            echo ""
+            echo "Health endpoint:"
+
+            curl http://localhost:8000/health
+
+
+            # ==================================================
+            # Cleanup unused images
+            # ==================================================
+
+            echo ""
+            echo "Cleaning unused Docker images..."
+
+            docker image prune -af
+
+
+            echo ""
+            echo "======================================"
+            echo "RevuAI deployment completed!"
+            echo "======================================"
+
 
           REMOTE_SCRIPT
