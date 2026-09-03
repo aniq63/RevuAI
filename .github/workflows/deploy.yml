@@ -204,9 +204,8 @@ jobs:
 
         run: |
 
-          SHORT_SHA="${GITHUB_SHA::7}"
-
-          IMAGE="ghcr.io/${{ github.repository_owner }}/revuai:sha-${SHORT_SHA}"
+          # Use the full GITHUB_SHA to match what was pushed to GHCR
+          IMAGE="ghcr.io/${{ github.repository_owner }}/revuai:sha-${GITHUB_SHA}"
 
           echo "======================================"
           echo "RevuAI Deployment"
@@ -214,10 +213,6 @@ jobs:
 
           echo "Git SHA:"
           echo "$GITHUB_SHA"
-
-          echo ""
-          echo "Short SHA:"
-          echo "$SHORT_SHA"
 
           echo ""
           echo "Docker Image:"
@@ -419,6 +414,5 @@ jobs:
 
             echo ""
             echo "RevuAI is now running."
-
 
           REMOTE_SCRIPT
