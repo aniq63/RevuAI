@@ -35,7 +35,8 @@ ENV OMP_NUM_THREADS=4 \
     MKL_NUM_THREADS=4 \
     OPENBLAS_NUM_THREADS=4 \
     TOKENIZERS_PARALLELISM=false \
-    TORCH_NUM_THREADS=4
+    TORCH_NUM_THREADS=4 \
+    NUMBA_DISABLE_CACHING=1
 
 RUN groupadd --system appgroup && \
     useradd  --system --gid appgroup --home /app --no-create-home appuser
@@ -56,5 +57,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 CMD ["uvicorn", "main:app", \
      "--host", "0.0.0.0", \
      "--port", "8000", \
-     "--workers", "2", \
+     "--workers", "1", \
      "--log-level", "info"]
