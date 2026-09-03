@@ -204,7 +204,6 @@ jobs:
 
         run: |
 
-          # Use the full GITHUB_SHA to match what was pushed to GHCR
           IMAGE="ghcr.io/${{ github.repository_owner }}/revuai:sha-${GITHUB_SHA}"
 
           echo "======================================"
@@ -238,11 +237,13 @@ jobs:
 
 
           # ==================================================
-          # Connect to EC2
+          # Connect to EC2 (With Keep-Alive Options)
           # ==================================================
 
           ssh \
             -i ~/.ssh/ec2_key \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=10 \
             "$EC2_USERNAME@$EC2_HOST" \
             "IMAGE='$IMAGE' GHCR_PAT='$GHCR_PAT' REPO_OWNER='$REPO_OWNER' bash -s" << 'REMOTE_SCRIPT'
 
@@ -271,6 +272,24 @@ jobs:
 
 
             # ==================================================
+            # Clean Up Old Container & Unused Images (Frees Memory)
+            # ==================================================
+
+            echo ""
+            echo "Stopping and removing old container..."
+
+            docker stop revuai-backend || true
+
+            docker rm revuai-backend || true
+
+
+            echo ""
+            echo "Pruning unused Docker images and build cache..."
+
+            docker system prune -a -f --volumes || true
+
+
+            # ==================================================
             # Pull new image
             # ==================================================
 
@@ -282,26 +301,6 @@ jobs:
 
             echo ""
             echo "Docker image pulled successfully."
-
-
-            # ==================================================
-            # Stop old container
-            # ==================================================
-
-            echo ""
-            echo "Stopping old container..."
-
-            docker stop revuai-backend || true
-
-
-            # ==================================================
-            # Remove old container
-            # ==================================================
-
-            echo ""
-            echo "Removing old container..."
-
-            docker rm revuai-backend || true
 
 
             # ==================================================
