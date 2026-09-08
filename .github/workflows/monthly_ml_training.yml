@@ -1,29 +1,199 @@
 name: Monthly ML Training Pipeline
 
+# ============================================================
+# TRIGGERS
+# ============================================================
+#
+# Schedule: 3 hours after the ETL pipeline (which runs at 00:00 UTC)
+# so that the latest data is already loaded before training starts.
+#
+# ETL cron:      0 0 1 * *   (00:00 UTC, 1st of every month)
+# ML training:   0 3 1 * *   (03:00 UTC, 1st of every month)
+
 on:
   schedule:
-    - cron: "0 0 1 * *"
+    - cron: "0 3 1 * *"
 
   workflow_dispatch:
 
+
+# ============================================================
+# CONCURRENCY
+# Prevent two ML training runs from racing to promote different models.
+# We do NOT cancel in-progress runs — let the first one finish.
+# ============================================================
+
+concurrency:
+  group: monthly-ml-training
+  cancel-in-progress: false
+
+
+# ============================================================
+# PERMISSIONS
+# ============================================================
+
+permissions:
+  contents: read
+  packages: write
+
+
 jobs:
+
+  # ============================================================
+  # 1. TRAIN MODEL & EVALUATE vs. CHAMPION
+  # ============================================================
+
   train-model:
+
     runs-on: ubuntu-latest
 
+    outputs:
+      champion_updated: ${{ steps.train.outputs.champion_updated }}
+
     steps:
+
+      # --------------------------------------------------------
+      # Checkout source code
+      # --------------------------------------------------------
+
       - name: Checkout repository
         uses: actions/checkout@v4
+
+
+      # --------------------------------------------------------
+      # Setup Python
+      # --------------------------------------------------------
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+
+      # --------------------------------------------------------
+      # Install dependencies
+      # --------------------------------------------------------
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+
+      # --------------------------------------------------------
+      # Run ML Training Pipeline
+      #
+      # DagsHub credentials are injected so that MLflow can
+      # authenticate against the DagsHub-hosted registry.
+      #
+      # The pipeline prints a machine-readable final line:
+      #   CHAMPION_UPDATED=true   or   CHAMPION_UPDATED=false
+      #
+      # We capture the full output, parse that line, and write
+      # the value to $GITHUB_OUTPUT so downstream jobs can use it.
+      # --------------------------------------------------------
+
       - name: Run ML Training Pipeline
+        id: train
+        env:
+          DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+          # dagshub.init() also respects these standard MLflow env vars.
+          MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+          MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
         run: |
-          python src/pipelines/ml_pipeline.py
+          set -euo pipefail
+
+          echo "========================================"
+          echo "Monthly ML Training"
+          echo "========================================"
+
+          # Capture the full pipeline output so we can both display it
+          # AND parse the CHAMPION_UPDATED= signal from it.
+          output=$(python src/pipelines/ml_pipeline.py 2>&1)
+          exit_code=$?
+
+          # Always print the full output to the Actions log.
+          echo "$output"
+
+          if [ $exit_code -ne 0 ]; then
+            echo ""
+            echo "========================================"
+            echo "ML Pipeline exited with error code: $exit_code"
+            echo "Deployment will NOT be triggered."
+            echo "========================================"
+            echo "champion_updated=false" >> "$GITHUB_OUTPUT"
+            exit $exit_code
+          fi
+
+          # Parse the last CHAMPION_UPDATED= line (lowercase true/false).
+          champion_updated=$(echo "$output" | grep "^CHAMPION_UPDATED=" | tail -1 | cut -d'=' -f2)
+
+          # Normalise to lowercase for safety.
+          champion_updated=$(echo "$champion_updated" | tr '[:upper:]' '[:lower:]')
+
+          # Default to false if the line was not found.
+          if [ -z "$champion_updated" ]; then
+            echo ""
+            echo "WARNING: CHAMPION_UPDATED signal not found in pipeline output."
+            echo "Defaulting to false — no deployment will be triggered."
+            champion_updated="false"
+          fi
+
+          echo ""
+          echo "========================================"
+          echo "Champion updated: $champion_updated"
+          echo "========================================"
+
+          echo "champion_updated=$champion_updated" >> "$GITHUB_OUTPUT"
+
+
+      # --------------------------------------------------------
+      # Human-readable training result summary
+      # --------------------------------------------------------
+
+      - name: Training result summary
+        run: |
+          echo ""
+          echo "========================================"
+          echo "Training Result"
+          echo "========================================"
+          echo "Champion updated: ${{ steps.train.outputs.champion_updated }}"
+
+          if [ "${{ steps.train.outputs.champion_updated }}" = "true" ]; then
+            echo ""
+            echo "✅ New model is better than the current Champion."
+            echo "   Champion alias has been updated in MLflow/DagsHub."
+            echo "   Deployment will be triggered."
+          else
+            echo ""
+            echo "ℹ️  No improvement over the current Champion."
+            echo "   The existing Champion remains active."
+            echo "   No deployment will be triggered."
+          fi
+          echo "========================================"
+
+
+  # ============================================================
+  # 2. DEPLOY (only when Champion was updated)
+  #
+  # Calls the existing deploy.yml workflow as a reusable workflow.
+  # This runs the full pipeline: pytest → Docker build → GHCR push
+  # → SSH to EC2 → docker pull → container restart → /health check.
+  #
+  # Nothing is duplicated — deploy.yml owns all of that logic.
+  # ============================================================
+
+  deploy-new-champion:
+
+    needs: train-model
+
+    # Only deploy when the Champion alias was actually updated.
+    if: needs.train-model.outputs.champion_updated == 'true'
+
+    uses: ./.github/workflows/deploy.yml
+
+    secrets:
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+      EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}

@@ -109,6 +109,16 @@ class ModelRegistry:
     # -------------------------------------------------------
 
     def register(self):
+        """
+        Evaluate the new model and promote it to Champion when appropriate.
+
+        Returns a tuple ``(version, champion_updated)`` where:
+
+        * ``version``          -- the MLflow model-version object that is now
+                                  the Champion (new if promoted, existing if not).
+        * ``champion_updated`` -- ``True`` when the Champion alias was reassigned
+                                  to the newly trained model, ``False`` otherwise.
+        """
 
         try:
 
@@ -157,7 +167,8 @@ class ModelRegistry:
                     "Registered first model successfully."
                 )
 
-                return version
+                # Champion was just created for the first time.
+                return version, True
 
             # ---------------------------------------------
             # Existing Champion
@@ -184,7 +195,7 @@ class ModelRegistry:
                     "quality threshold)."
                 )
 
-                return champion
+                return champion, False
 
             # ---------------------------------------------
             # Compare
@@ -204,13 +215,15 @@ class ModelRegistry:
                     f"Champion updated to version {version.version}"
                 )
 
-                return version
+                # Champion alias was reassigned to the new model.
+                return version, True
 
             logging.info(
                 "Champion model is still better."
             )
 
-            return champion
+            # Champion did not change.
+            return champion, False
 
         except Exception as e:
 

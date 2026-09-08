@@ -157,6 +157,17 @@ class TestSafeInt:
         assert LoadData._safe_int("abc") is None
 
 
+class TestSafeLabel:
+    def test_text_labels_are_encoded_for_database(self):
+        assert LoadData._safe_label("positive") == 2
+        assert LoadData._safe_label(" Negative ") == 0
+        assert LoadData._safe_label("NEUTRAL") == 1
+
+    def test_numeric_and_invalid_labels(self):
+        assert LoadData._safe_label(2) == 2
+        assert LoadData._safe_label("invalid") is None
+
+
 class TestPrepareRows:
     def test_builds_rows_with_hash_and_lineage(self):
         loader = LoadData(source="unit_test_source")

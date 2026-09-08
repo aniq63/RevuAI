@@ -292,9 +292,10 @@ class TestModelRegistry:
         fake_client.seed_run("run_1", 0.85)
         registry = ModelRegistry(run_id="run_1", test_f1=0.85)
 
-        version = registry.register()
+        version, champion_updated = registry.register()
 
         assert version.version == "1"
+        assert champion_updated is True
         champion = registry.client.get_model_version_by_alias(
             registry.model_name, "Champion"
         )
@@ -306,9 +307,10 @@ class TestModelRegistry:
         fake_client.seed_run("run_2", 0.90)
 
         registry = ModelRegistry(run_id="run_2", test_f1=0.90)
-        version = registry.register()
+        version, champion_updated = registry.register()
 
         assert version.version == "2"
+        assert champion_updated is True
         champion = registry.client.get_model_version_by_alias(
             registry.model_name, "Champion"
         )
@@ -319,9 +321,10 @@ class TestModelRegistry:
         fake_client.seed_run("run_2", 0.70)
 
         registry = ModelRegistry(run_id="run_2", test_f1=0.70)
-        version = registry.register()
+        version, champion_updated = registry.register()
 
         assert version.version == "1"  # still the old champion
+        assert champion_updated is False
 
     def test_below_quality_gate_never_promotes(self, fake_client):
         _seed_champion(fake_client, f1=0.80)
@@ -331,9 +334,10 @@ class TestModelRegistry:
         registry = ModelRegistry(
             run_id="run_2", test_f1=0.95, min_test_f1=0.99
         )
-        version = registry.register()
+        version, champion_updated = registry.register()
 
         assert version.version == "1"
+        assert champion_updated is False
         assert "2" not in fake_client.models[registry.model_name]["versions"]
 
     def test_always_promote_replaces_champion(self, fake_client):
@@ -343,9 +347,10 @@ class TestModelRegistry:
         registry = ModelRegistry(
             run_id="run_2", test_f1=0.50, always_promote=True
         )
-        version = registry.register()
+        version, champion_updated = registry.register()
 
         assert version.version == "2"
+        assert champion_updated is True
 
     def test_first_model_below_gate_raises(self, fake_client):
         fake_client.seed_run("run_1", 0.10)
@@ -354,6 +359,54 @@ class TestModelRegistry:
 
         with pytest.raises(MyException):
             registry.register()
+
+    # ------------------------------------------------------------------
+    # New tests: champion_updated signal for every decision branch
+    # ------------------------------------------------------------------
+
+    def test_equal_f1_does_not_update_champion(self, fake_client):
+        """new_f1 == champion_f1 → no promotion → champion_updated=False."""
+        _seed_champion(fake_client, f1=0.80)
+        fake_client.seed_run("run_2", 0.80)
+
+        registry = ModelRegistry(run_id="run_2", test_f1=0.80)
+        version, champion_updated = registry.register()
+
+        assert champion_updated is False
+        assert version.version == "1"  # old champion unchanged
+
+    def test_no_champion_first_model_champion_updated_true(self, fake_client):
+        """No Champion exists → first model registered → champion_updated=True."""
+        fake_client.seed_run("first_run", 0.75)
+
+        registry = ModelRegistry(run_id="first_run", test_f1=0.75)
+        _, champion_updated = registry.register()
+
+        assert champion_updated is True
+
+    def test_min_test_f1_blocks_promotion_champion_updated_false(self, fake_client):
+        """min_test_f1 blocks even a better model → champion_updated=False."""
+        _seed_champion(fake_client, f1=0.50)
+        fake_client.seed_run("run_2", 0.60)  # better than champion
+
+        registry = ModelRegistry(
+            run_id="run_2", test_f1=0.60, min_test_f1=0.70  # floor above both
+        )
+        _, champion_updated = registry.register()
+
+        assert champion_updated is False
+
+    def test_always_promote_champion_updated_true(self, fake_client):
+        """always_promote=True forces promotion → champion_updated=True."""
+        _seed_champion(fake_client, f1=0.99)
+        fake_client.seed_run("run_2", 0.10)  # much worse, but always_promote
+
+        registry = ModelRegistry(
+            run_id="run_2", test_f1=0.10, always_promote=True
+        )
+        _, champion_updated = registry.register()
+
+        assert champion_updated is True
 
 
 # ==============================================

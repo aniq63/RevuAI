@@ -29,13 +29,14 @@ class MLPipeline:
     Data Ingestion -> Feature Transformation -> Model Training & Evaluation -> Model Registry
 
     Chains the ML steps into a single pipeline and returns the trained model
-    along with the test F1 score and the MLflow run id.
+    along with the test F1 score, the MLflow run id, and whether the Champion
+    alias was updated.
     """
     def __call__(self, sample_size : int = 35000):
         self.sample_size = sample_size
 
     async def run_ml_pipeline(self) -> tuple:
-        """Run the ML Pipeline and return (model, test_f1, run_id)."""
+        """Run the ML Pipeline and return (model, test_f1, run_id, champion_updated)."""
         logging.info("Start the ML Pipeline")
 
         try:
@@ -96,13 +97,15 @@ class MLPipeline:
                 min_test_f1 = float(raw_min_f1) if raw_min_f1 is not None else None
             except Exception:
                 min_test_f1 = None
+
             registry = ModelRegistry(
                 run_id=run_id,
                 test_f1=test_f1,
                 always_promote=always_promote,
                 min_test_f1=min_test_f1,
             )
-            version = registry.register()
+            version, champion_updated = registry.register()
+
             logging.info(
                 f"Model Registry for Production is Completed. "
                 f"Registered version: {version.version}"
@@ -111,10 +114,10 @@ class MLPipeline:
             logging.info(
                 f"ML Pipeline completed successfully. "
                 f"Test F1: {test_f1:.4f} | run_id: {run_id} | "
-                f"version: {version.version}"
+                f"version: {version.version} | champion_updated: {champion_updated}"
             )
 
-            return model, test_f1, run_id
+            return model, test_f1, run_id, champion_updated
 
         except Exception as e:
             logging.error(f"Error during ML pipeline execution: {e}")
@@ -129,7 +132,34 @@ if __name__ == "__main__":
 
     try:
         pipeline = MLPipeline()
-        model, test_f1, run_id = asyncio.run(pipeline.run_ml_pipeline())
-        print(f"Model trained. Test F1: {test_f1:.4f} | run_id: {run_id}")
+        model, test_f1, run_id, champion_updated = asyncio.run(
+            pipeline.run_ml_pipeline()
+        )
+
+        print("")
+        print("========================================")
+        print("Monthly ML Training — Result")
+        print("========================================")
+        print(f"New model Test F1 : {test_f1:.4f}")
+        print(f"run_id            : {run_id}")
+        print(f"Champion updated  : {champion_updated}")
+        print("")
+
+        if champion_updated:
+            print("New model is better. Champion promoted.")
+        else:
+            print("No improvement. Current Champion remains active.")
+
+        print("")
+
+        # Machine-readable signal for GitHub Actions.
+        # This MUST be the final printed line.
+        print(f"CHAMPION_UPDATED={'true' if champion_updated else 'false'}")
+
     except MyException as e:
         print(f"ML Pipeline failed: {e}")
+        # Ensure a deterministic false signal even on failure so that
+        # GitHub Actions does not accidentally trigger deployment.
+        print("CHAMPION_UPDATED=false")
+        sys.exit(1)
+

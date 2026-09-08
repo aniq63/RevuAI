@@ -52,7 +52,7 @@ class LoadData:
                     "content": str(content),
                     "score": self._safe_int(row.get("score")),
                     "thumbs_up_count": self._safe_int(row.get("thumbsUpCount")),
-                    "label": row.get("label"),
+                        "label": self._safe_label(row.get("label")),
                     "content_hash": _hash_content(content),
                     "source": self.source,
                     "ingestion_batch_id": batch_id,
@@ -68,6 +68,16 @@ class LoadData:
             return int(value)
         except (ValueError, TypeError):
             return None
+
+    @classmethod
+    def _safe_label(cls, value):
+        """Normalize sentiment labels to the integer codes used by the schema."""
+        if isinstance(value, str):
+            label_codes = {"negative": 0, "neutral": 1, "positive": 2}
+            normalized = value.strip().lower()
+            if normalized in label_codes:
+                return label_codes[normalized]
+        return cls._safe_int(value)
 
     async def load_data_async(self, df: pd.DataFrame, batch_id: Optional[uuid.UUID] = None) -> dict:
         """

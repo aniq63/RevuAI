@@ -7,6 +7,34 @@ on:
 
   workflow_dispatch:
 
+  # Allow this workflow to be called by other workflows (e.g. monthly ML training).
+  workflow_call:
+    secrets:
+      EC2_HOST:
+        required: true
+      EC2_USERNAME:
+        required: true
+      EC2_SSH_KEY:
+        required: true
+
+
+# ============================================================
+# WORKFLOW-LEVEL PERMISSIONS
+# Required both for direct push runs AND for workflow_call.
+# ============================================================
+
+permissions:
+  contents: read
+  packages: write
+
+
+# ============================================================
+# CONCURRENCY — prevent two simultaneous deployments
+# ============================================================
+
+concurrency:
+  group: revuai-deploy
+  cancel-in-progress: false
 
 # ============================================================
 # GLOBAL ENVIRONMENT

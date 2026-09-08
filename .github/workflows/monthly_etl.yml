@@ -6,6 +6,12 @@ on:
 
   workflow_dispatch:
 
+
+# Prevent two ETL runs from overwriting each other's data.
+concurrency:
+  group: monthly-etl
+  cancel-in-progress: false
+
 jobs:
   run-etl:
     runs-on: ubuntu-latest
