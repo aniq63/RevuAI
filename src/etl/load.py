@@ -44,7 +44,7 @@ class LoadData:
         records = []
         for row in df.to_dict(orient="records"):
             content = row.get("content")
-            if content is None or str(content).strip() == "":
+            if content is None or pd.isna(content) or str(content).strip() == "":
                 continue
 
             records.append(
@@ -52,7 +52,7 @@ class LoadData:
                     "content": str(content),
                     "score": self._safe_int(row.get("score")),
                     "thumbs_up_count": self._safe_int(row.get("thumbsUpCount")),
-                        "label": self._safe_label(row.get("label")),
+                    "label": self._safe_label(row.get("label")),
                     "content_hash": _hash_content(content),
                     "source": self.source,
                     "ingestion_batch_id": batch_id,
