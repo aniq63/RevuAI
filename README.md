@@ -54,7 +54,7 @@
 - Cluster review topics with MiniLM embeddings, UMAP, HDBSCAN, and KeyBERT.
 - Generate a readable summary and recommendations with Groq.
 - Cache recent analyses to make repeated extension requests faster.
-- Maintain an append-only review data lake in PostgreSQL/Supabase for model retraining.
+- Maintain an append only review data lake in PostgreSQL/Supabase for model retraining.
 - Track experiments and register Champion models through MLflow and DagsHub.
 
 ## Architecture

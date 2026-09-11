@@ -119,6 +119,13 @@ document.querySelectorAll('#method-pills .pill').forEach(pill => {
   });
 });
 
+document.querySelectorAll('.filter-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    chip.classList.toggle('active');
+    chip.classList.toggle('purple-outline');
+  });
+});
+
 function extractAppId(raw) {
   const t = raw.trim();
   if (!t) return '';

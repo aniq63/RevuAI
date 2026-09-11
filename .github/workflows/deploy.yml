@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - 'extension/**'
+      - 'README.md'
+      - '**.md'
 
   workflow_dispatch:
 

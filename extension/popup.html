@@ -12,18 +12,18 @@
     rel="stylesheet" />
   <style>
     :root {
-      --bg: #090a12;
-      --card-bg: #121324;
-      --card-border: #1f2238;
+      --bg: #05060b;
+      --card-bg: #0b0c16;
+      --card-border: #1d1e36;
       --accent-purple: #8b5cf6;
-      --accent-gradient: linear-gradient(135deg, #7928ca 0%, #a855f7 50%, #ec4899 100%);
-      --btn-gradient: linear-gradient(90deg, #7c3aed 0%, #9333ea 50%, #a855f7 100%);
+      --accent-gradient: linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #c084fc 100%);
+      --btn-gradient: linear-gradient(90deg, #6d28d9 0%, #8b5cf6 45%, #a855f7 75%, #c084fc 100%);
       --text-main: #ffffff;
       --text-muted: #8e95b3;
       --text-dim: #5c6280;
-      --pill-bg: #151828;
-      --pill-border: #232742;
-      --pill-hover: #2e3357;
+      --pill-bg: #0d0e1b;
+      --pill-border: #1c1f36;
+      --pill-hover: #262947;
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
@@ -40,7 +40,7 @@
       min-width: 420px;
       background-color: var(--bg);
       color: var(--text-main);
-      padding: 16px;
+      padding: 14px;
       font-size: 13px;
       line-height: 1.5;
       overflow-x: hidden;
@@ -48,11 +48,11 @@
 
     /* Main container card styling */
     .app-frame {
-      background: radial-gradient(circle at 50% 0%, #1c1d36 0%, #0d0e1b 100%);
-      border: 1px solid #282a47;
+      background: radial-gradient(circle at 50% -10%, #17132e 0%, #0b0c16 55%, #070810 100%);
+      border: 1px solid #1e2038;
       border-radius: 28px;
       padding: 24px 20px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 40px rgba(124, 58, 237, 0.08);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85), 0 0 35px rgba(139, 92, 246, 0.08);
       position: relative;
     }
 
@@ -61,7 +61,9 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 24px;
+      margin-bottom: 22px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #16182c;
       position: relative;
     }
 
@@ -74,13 +76,13 @@
     .brand-icon {
       width: 44px;
       height: 44px;
-      background: linear-gradient(135deg, #2e1a53 0%, #1e133a 100%);
+      background: linear-gradient(135deg, #251647 0%, #150d2c 100%);
       border: 1.5px solid #8b5cf6;
       border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 0 16px rgba(139, 92, 246, 0.35);
+      box-shadow: 0 0 18px rgba(139, 92, 246, 0.4);
       position: relative;
     }
 
@@ -94,15 +96,19 @@
     }
 
     .brand-text h1 {
-      font-size: 22px;
+      font-size: 23px;
       font-weight: 800;
       letter-spacing: -0.02em;
       display: flex;
       align-items: center;
       line-height: 1.1;
+      color: #ffffff;
     }
 
     .brand-text h1 span {
+      background: linear-gradient(135deg, #a855f7 0%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
       color: #a855f7;
     }
 
@@ -126,11 +132,11 @@
     }
 
     .icon-btn {
-      width: 34px;
-      height: 34px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
-      background: #17192e;
-      border: 1px solid #292d4d;
+      background: #121426;
+      border: 1px solid #202442;
       color: var(--text-muted);
       display: flex;
       align-items: center;
@@ -141,35 +147,35 @@
     }
 
     .icon-btn:hover {
-      background: #232746;
+      background: #1e2242;
       color: #fff;
       border-color: #8b5cf6;
-      box-shadow: 0 0 12px rgba(139, 92, 246, 0.3);
+      box-shadow: 0 0 14px rgba(139, 92, 246, 0.35);
     }
 
     .icon-btn-highlight {
-      background: linear-gradient(135deg, #4c1d95, #6d28d9);
-      border-color: #8b5cf6;
+      background: linear-gradient(135deg, #2a154d 0%, #4c1d95 100%);
+      border: 1.5px solid #8b5cf6;
       color: #fff;
-      box-shadow: 0 0 14px rgba(139, 92, 246, 0.4);
+      box-shadow: 0 0 16px rgba(139, 92, 246, 0.45);
     }
 
     .icon-btn-highlight:hover {
-      box-shadow: 0 0 20px rgba(139, 92, 246, 0.6);
-      transform: scale(1.04);
+      box-shadow: 0 0 22px rgba(139, 92, 246, 0.65);
+      transform: scale(1.05);
     }
 
     /* Help Hover Card / Tooltip */
     .help-popover {
       position: absolute;
-      top: 44px;
+      top: 46px;
       right: 0;
       width: 280px;
-      background: #16182c;
-      border: 1px solid #362f61;
+      background: #0d0f1f;
+      border: 1px solid #2d2454;
       border-radius: 16px;
       padding: 14px 16px;
-      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.7), 0 0 20px rgba(124, 58, 237, 0.2);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85), 0 0 24px rgba(139, 92, 246, 0.25);
       z-index: 100;
       opacity: 0;
       visibility: hidden;
@@ -234,7 +240,7 @@
 
     /* Step Sections */
     .step-section {
-      margin-bottom: 22px;
+      margin-bottom: 20px;
     }
 
     .step-header {
@@ -248,8 +254,8 @@
       width: 28px;
       height: 28px;
       border-radius: 8px;
-      background: #1e1b38;
-      border: 1px solid #362f61;
+      background: #16132e;
+      border: 1px solid #2a2254;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -289,25 +295,25 @@
 
     .url-input {
       width: 100%;
-      background: #101221;
-      border: 1.5px solid #2d2354;
-      border-radius: 14px;
+      background: #0b0c17;
+      border: 1.5px solid #8b5cf6;
+      border-radius: 16px;
       padding: 13px 14px 13px 44px;
       color: #fff;
       font-size: 13px;
       font-family: inherit;
       outline: none;
       transition: all 0.2s ease;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 0 16px rgba(139, 92, 246, 0.35), inset 0 2px 4px rgba(0, 0, 0, 0.4);
     }
 
     .url-input:focus {
       border-color: #a855f7;
-      box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.2), 0 4px 14px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 0 20px rgba(168, 85, 247, 0.5), 0 4px 14px rgba(0, 0, 0, 0.4);
     }
 
     .url-input::placeholder {
-      color: #4b5270;
+      color: #434867;
     }
 
     .input-hint {
@@ -332,9 +338,10 @@
 
     .detect-btn:hover {
       text-decoration: underline;
+      color: #c084fc;
     }
 
-    /* Scrape Method Selector */
+    /* Scrape Method Selector & Filter Chips */
     .scrape-method-group {
       margin-bottom: 12px;
     }
@@ -355,14 +362,15 @@
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 8px;
+      margin-bottom: 10px;
     }
 
     .method-pill {
-      background: #111324;
-      border: 1.5px solid #242847;
+      background: #0d0e1b;
+      border: 1px solid #1c1f36;
       border-radius: 12px;
       padding: 8px 6px;
-      color: #9ba3c4;
+      color: #8e95b3;
       font-size: 11.5px;
       font-weight: 600;
       text-align: center;
@@ -376,31 +384,31 @@
     }
 
     .method-pill:hover {
-      border-color: #3f4577;
+      border-color: #363b63;
       color: #fff;
-      background: #1a1d36;
+      background: #14162a;
     }
 
     .method-pill.active {
-      background: linear-gradient(135deg, rgba(124, 58, 237, 0.25) 0%, rgba(168, 85, 247, 0.2) 100%);
-      border-color: #8b5cf6;
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.25) 0%, rgba(168, 85, 247, 0.15) 100%);
+      border: 1.5px solid #8b5cf6;
       color: #fff;
-      box-shadow: 0 0 14px rgba(139, 92, 246, 0.3);
+      box-shadow: 0 0 14px rgba(139, 92, 246, 0.35);
     }
 
     /* Filter Grid */
     .filters-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 9px;
+      gap: 8px;
     }
 
     .filter-chip {
-      background: var(--pill-bg);
-      border: 1px solid var(--pill-border);
+      background: #0d0e1c;
+      border: 1px solid #1c1f36;
       border-radius: 20px;
       padding: 8px 10px;
-      color: #9ba3c4;
+      color: #8e95b3;
       font-size: 11.5px;
       font-weight: 600;
       display: flex;
@@ -420,37 +428,33 @@
     }
 
     .filter-chip:hover {
-      border-color: #3d4370;
+      border-color: #363b63;
       color: #fff;
-      background: var(--pill-hover);
+      background: #14162a;
     }
 
-    .filter-chip.active {
-      background: rgba(139, 92, 246, 0.15);
-      border-color: #8b5cf6;
-      color: #fff;
-      box-shadow: 0 0 12px rgba(139, 92, 246, 0.2);
-    }
-
+    .filter-chip.active,
     .filter-chip.purple-outline {
-      border-color: #8b5cf6;
+      background: rgba(139, 92, 246, 0.12);
+      border: 1.5px solid #8b5cf6;
       color: #fff;
+      box-shadow: 0 0 12px rgba(139, 92, 246, 0.3);
     }
 
     /* Insights Banner Card */
     .insight-card {
-      background: linear-gradient(135deg, #16172e 0%, #111224 100%);
-      border: 1px solid #2c2552;
-      border-left: 3px solid #8b5cf6;
+      background: linear-gradient(135deg, #100b24 0%, #0c0a18 100%);
+      border: 1px solid #281d4e;
       border-radius: 16px;
       padding: 14px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      margin-bottom: 22px;
+      margin-bottom: 20px;
       position: relative;
       overflow: hidden;
+      box-shadow: inset 0 0 20px rgba(139, 92, 246, 0.08);
     }
 
     .insight-card::before {
@@ -460,7 +464,7 @@
       left: 10px;
       width: 100px;
       height: 100px;
-      background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 70%);
+      background: radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, transparent 70%);
       pointer-events: none;
     }
 
@@ -472,16 +476,18 @@
     }
 
     .insight-icon-box {
-      width: 32px;
-      height: 32px;
-      background: #2d1854;
-      border-radius: 8px;
+      width: 34px;
+      height: 34px;
+      background: #251448;
+      border: 1px solid #7c3aed;
+      border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
       color: #c084fc;
       flex-shrink: 0;
-      margin-top: 2px;
+      margin-top: 1px;
+      box-shadow: 0 0 12px rgba(139, 92, 246, 0.3);
     }
 
     .insight-text h3 {
@@ -523,14 +529,14 @@
       justify-content: center;
       gap: 9px;
       cursor: pointer;
-      box-shadow: 0 8px 24px rgba(124, 58, 237, 0.45);
+      box-shadow: 0 6px 28px rgba(139, 92, 246, 0.55), 0 0 12px rgba(168, 85, 247, 0.3);
       transition: all 0.2s ease;
       position: relative;
     }
 
     .btn-submit:hover:not(:disabled) {
       transform: translateY(-1.5px);
-      box-shadow: 0 12px 30px rgba(124, 58, 237, 0.6);
+      box-shadow: 0 10px 35px rgba(139, 92, 246, 0.7), 0 0 18px rgba(192, 132, 252, 0.4);
       filter: brightness(1.08);
     }
 
@@ -548,9 +554,9 @@
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 10px;
-      margin-top: 24px;
+      margin-top: 22px;
       padding-top: 18px;
-      border-top: 1px solid #1c1e33;
+      border-top: 1px solid #16182c;
     }
 
     .trust-item {
@@ -595,9 +601,9 @@
     .loading-wrap {
       margin-top: 18px;
       padding: 18px;
-      background: #121426;
+      background: #0d0e1b;
       border-radius: 16px;
-      border: 1px solid #232742;
+      border: 1px solid #1c1f36;
     }
 
     .loading-title {
@@ -616,7 +622,7 @@
     .progress-track {
       height: 6px;
       border-radius: 999px;
-      background: #1d2138;
+      background: #181b30;
       overflow: hidden;
       margin-bottom: 16px;
     }
@@ -655,7 +661,7 @@
       width: 18px;
       height: 18px;
       border-radius: 50%;
-      border: 1.5px solid #2d3257;
+      border: 1.5px solid #232747;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -712,10 +718,10 @@
     .meta-pill {
       font-size: 11px;
       color: var(--text-muted);
-      border: 1px solid #252a45;
+      border: 1px solid #1c1f36;
       padding: 4px 8px;
       border-radius: 999px;
-      background: #14172b;
+      background: #0d0e1b;
     }
 
     .cache-badge {
@@ -728,8 +734,8 @@
     }
 
     .btn-secondary {
-      background: #15182a;
-      border: 1px solid #282d4c;
+      background: #0d0e1b;
+      border: 1px solid #1c1f36;
       color: #fff;
       padding: 7px 12px;
       border-radius: 8px;
@@ -740,11 +746,12 @@
 
     .btn-secondary:hover {
       border-color: #8b5cf6;
+      box-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
     }
 
     .result-card {
-      background: #111324;
-      border: 1px solid #222642;
+      background: #0d0e1b;
+      border: 1px solid #1c1f36;
       border-radius: 14px;
       padding: 16px;
     }
@@ -767,8 +774,8 @@
     .sentiment-card {
       border-radius: 10px;
       padding: 12px;
-      border: 1px solid #232744;
-      background: #16192e;
+      border: 1px solid #1c1f36;
+      background: #111324;
     }
 
     .sent-pct {
@@ -804,8 +811,8 @@
     }
 
     .review-card {
-      border: 1px solid #232744;
-      background: #16192e;
+      border: 1px solid #1c1f36;
+      background: #111324;
       border-radius: 10px;
       padding: 12px;
       margin-bottom: 8px;
@@ -1062,7 +1069,7 @@
         </div>
       </div>
 
-      <!-- Step 2: Select Scrape Method -->
+      <!-- Step 2: Select Filters -->
       <div class="step-section">
         <div class="step-header">
           <div class="step-icon-wrap">
@@ -1072,7 +1079,7 @@
               <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
             </svg>
           </div>
-          <div class="step-title">2. Select Scrape Method</div>
+          <div class="step-title">2. Select Filters <span class="optional">(Optional)</span></div>
         </div>
 
         <!-- Scrape Method Picker -->
@@ -1081,6 +1088,42 @@
             <div class="method-pill pill active" data-value="new_reviews">Newest Reviews</div>
             <div class="method-pill pill" data-value="relevant_reviews">Most Relevant</div>
             <div class="method-pill pill" data-value="all_reviews">All Reviews</div>
+          </div>
+        </div>
+
+        <!-- Filters Grid Matching Image -->
+        <div class="filters-grid" id="filters-grid">
+          <div class="filter-chip active purple-outline" data-filter="ratings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            <span>Ratings</span>
+          </div>
+          <div class="filter-chip" data-filter="sentiment">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+            <span>Sentiment</span>
+          </div>
+          <div class="filter-chip" data-filter="topics">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+            <span>Topics</span>
+          </div>
+          <div class="filter-chip" data-filter="aspects">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+            <span>Aspects</span>
+          </div>
+          <div class="filter-chip" data-filter="language">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            <span>Language</span>
+          </div>
+          <div class="filter-chip" data-filter="timerange">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            <span>Time Range</span>
+          </div>
+          <div class="filter-chip" data-filter="device">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+            <span>Device</span>
+          </div>
+          <div class="filter-chip" data-filter="length">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="10" x2="3" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="21" y1="18" x2="3" y2="18"></line></svg>
+            <span>Content Length</span>
           </div>
         </div>
 
